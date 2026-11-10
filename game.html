@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>NEXUS Game — Прототип</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Убираем прокрутку */
+            background: #111;
+            font-family: monospace;
+            color: white;
+        }
+        canvas {
+            display: block;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border: 1px solid #555;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Наш холст, на котором будем рисовать -->
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui">
+        <b>Управление:</b><br>
+        WASD — ходить<br>
+        ← → — двигать камеру
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Растягиваем холст на весь экран
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- ИГРОВЫЕ ОБЪЕКТЫ ---
+    // Наш персонаж
+    const player = {
+        x: 0,        // Позиция в мире
+        y: 0,
+        speed: 5,
+        size: 30,
+        color: '#00b06f' // Зеленый квадратик
+    };
+
+    // Камера (то, как мы смотрим на мир)
+    const camera = {
+        x: 0,        // Смещение камеры
+        y: 0,
+        speed: 6
+    };
+
+    // Отслеживаем нажатые клавиши
+    const keys = {};
+
+    window.addEventListener('keydown', (e) => {
+        keys[e.key.toLowerCase()] = true;
+        // Предотвращаем скролл страницы стрелочками
+        if(['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
+            e.preventDefault();
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        keys[e.key.toLowerCase()] = false;
+    });
+
+    // --- ИГРОВОЙ ЦИКЛ ---
+    function update() {
+        // 1. ДВИЖЕНИЕ ПЕРСОНАЖА (WASD)
+        if (keys['w']) player.y -= player.speed;
+        if (keys['s']) player.y += player.speed;
+        if (keys['a']) player.x -= player.speed;
+        if (keys['d']) player.x += player.speed;
+
+        // 2. ДВИЖЕНИЕ КАМЕРЫ (Только влево-вправо)
+        // Вверх и вниз игнорируем!
+        if (keys['arrowleft'])  camera.x -= camera.speed;
+        if (keys['arrowright']) camera.x += camera.speed;
+    }
+
+    function draw() {
+        // Очищаем экран
+        ctx.fillStyle = '#222';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Рисуем "сетку" земли, чтобы было видно движение камеры
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        const gridSize = 50;
+        
+        // Вычисляем, где начинать рисовать сетку с учетом камеры
+        const startX = -camera.x % gridSize;
+        
+        for (let x = startX; x < canvas.width; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+
+        // Рисуем персонажа
+        // Экранная позиция = позиция в мире - позиция камеры + центр экрана
+        const screenX = (canvas.width / 2) + (player.x - camera.x);
+        const screenY = (canvas.height / 2) + (player.y - camera.y);
+
+        ctx.fillStyle = player.color;
+        ctx.fillRect(screenX - player.size/2, screenY - player.size/2, player.size, player.size);
+        
+        // Рисуем полоску-глаз, чтобы видеть, куда он смотрит
+        ctx.fillStyle = 'white';
+        ctx.fillRect(screenX - 5, screenY - 10, 10, 5);
+    }
+
+    // Главный цикл (вызывается 60 раз в секунду)
+    function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // Запуск
+    gameLoop();
+
+</script>
+</body>
+</html>
