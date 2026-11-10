@@ -5,372 +5,157 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>NEXUS — Старый добрый сайт</title>
 <style>
-  * {
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-    transition: none !important; /* Резкие переключения */
-    animation: none !important;
-    font-family: Verdana, Tahoma, Arial, sans-serif;
-  }
-
-  body {
-    margin: 0; padding: 0;
-    background: #3a5a7a;
-    font-size: 11px;
-    color: #222;
-  }
-
-  /* ===== ШАПКА ===== */
-  header {
-    background: linear-gradient(#0d2c54, #1a4f8a 50%, #0d2c54);
-    border-bottom: 2px solid #000;
-    color: #fff;
-    padding: 8px 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .logo {
-    font-family: "Arial Black", Impact, sans-serif;
-    font-size: 22px;
-    letter-spacing: 2px;
-    color: #fff;
-    text-shadow: 2px 2px 0 #000;
-    font-weight: 900;
-    cursor: pointer;
-  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; transition: none !important; animation: none !important; font-family: Verdana, Tahoma, Arial, sans-serif; }
+  body { margin: 0; padding: 0; background: #3a5a7a; font-size: 11px; color: #222; }
+  
+  header { background: linear-gradient(#0d2c54, #1a4f8a 50%, #0d2c54); border-bottom: 2px solid #000; color: #fff; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; }
+  .logo { font-family: "Arial Black", Impact, sans-serif; font-size: 22px; letter-spacing: 2px; color: #fff; text-shadow: 2px 2px 0 #000; font-weight: 900; cursor: pointer; }
   .logo span { color: #ffcc00; }
+  .auth-status { font-size: 11px; display: flex; align-items: center; gap: 10px; }
+  .auth-btn { background: linear-gradient(#f4f4f4, #b0b0b0); border: 1px solid #000; padding: 3px 10px; cursor: pointer; font-weight: bold; font-size: 11px; }
 
-  .auth-status {
-    font-size: 11px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+  nav { background: linear-gradient(#4a7ab0, #2c5686); border-bottom: 2px solid #0a1c33; display: flex; }
+  nav a { display: block; padding: 6px 16px; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 11px; border-right: 1px solid #0a1c33; text-shadow: 1px 1px 0 #000; cursor: pointer; }
+  nav a.active { background: #0a1c33; color: #ffcc00; text-shadow: none; }
 
-  .auth-btn {
-    background: linear-gradient(#f4f4f4, #b0b0b0);
-    border: 1px solid #000;
-    padding: 3px 10px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 11px;
-  }
-
-  /* ===== НАВИГАЦИЯ ===== */
-  nav {
-    background: linear-gradient(#4a7ab0, #2c5686);
-    border-bottom: 2px solid #0a1c33;
-    display: flex;
-  }
-  nav a {
-    display: block;
-    padding: 6px 16px;
-    color: #ffffff;
-    text-decoration: none;
-    font-weight: bold;
-    font-size: 11px;
-    border-right: 1px solid #0a1c33;
-    text-shadow: 1px 1px 0 #000;
-    cursor: pointer;
-  }
-  nav a.active {
-    background: #0a1c33;
-    color: #ffcc00;
-    text-shadow: none;
-  }
-
-  /* ===== ОСНОВНОЙ КОНТЕНТ ===== */
-  .container {
-    width: 100%;
-    max-width: 800px;
-    margin: 10px auto;
-    background: #fff;
-    border: 2px solid #0a1c33;
-    padding: 10px;
-    min-height: 400px;
-  }
-
+  .container { width: 100%; max-width: 800px; margin: 10px auto; background: #fff; border: 2px solid #0a1c33; padding: 10px; min-height: 400px; }
   .page { display: none; }
   .page.active { display: block; }
+  .page-title { font-size: 15px; color: #0a1c33; margin: 0 0 10px 0; padding-bottom: 4px; border-bottom: 2px solid #4a7ab0; }
 
-  .page-title {
-    font-size: 15px;
-    color: #0a1c33;
-    margin: 0 0 10px 0;
-    padding-bottom: 4px;
-    border-bottom: 2px solid #4a7ab0;
-  }
+  /* Стили игр */
+  .game-item { background: #f0f4f8; border: 1px solid #a0b8cc; margin-bottom: 8px; display: flex; align-items: center; padding: 8px; }
+  .game-icon { font-size: 24px; width: 40px; text-align: center; margin-right: 10px; }
+  .game-info { flex: 1; }
+  .game-title { font-weight: bold; font-size: 12px; color: #003399; margin-bottom: 2px; }
+  .game-stats { font-size: 10px; color: #555; }
+  .play-btn { background: linear-gradient(#4caf50, #2a7a2a); color: #fff; border: 1px solid #000; padding: 5px 15px; font-weight: bold; cursor: pointer; font-size: 11px; text-shadow: 1px 1px 0 #000; }
 
-  /* ===== ИГРЫ ===== */
-  .empty-games {
-    background: #f0f4f8;
-    border: 1px dashed #a0b8cc;
-    padding: 30px 10px;
-    text-align: center;
-    color: #667788;
-    font-weight: bold;
-  }
-
-  /* ===== ПРОФИЛЬ ===== */
-  .profile-header {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    background: #eef3f7;
-    border: 1px solid #a0b8cc;
-    padding: 10px;
-    margin-bottom: 10px;
-  }
-
-  .avatar-big {
-    width: 60px; height: 60px;
-    background: #c0c0c0; /* Серый аватар без эмодзи */
-    border: 2px solid #000;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 24px;
-    font-weight: bold;
-    color: #fff;
-  }
-
-  .profile-stats {
-    font-size: 11px;
-    line-height: 1.6;
-  }
-
-  .stat-box {
-    background: #fff8d0;
-    border: 1px solid #d0b040;
-    padding: 8px;
-    margin-bottom: 10px;
-    font-size: 11px;
-  }
-
-  /* ===== ФОРМА РЕДАКТИРОВАНИЯ ===== */
-  .edit-btn {
-    background: linear-gradient(#f4f4f4, #b0b0b0);
-    border: 1px solid #000;
-    padding: 4px 12px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 11px;
-    margin-top: 5px;
-  }
-
+  /* Стили профиля и авторизации */
+  .profile-header { display: flex; align-items: center; gap: 15px; background: #eef3f7; border: 1px solid #a0b8cc; padding: 10px; margin-bottom: 10px; }
+  .avatar-big { width: 60px; height: 60px; background: #c0c0c0; border: 2px solid #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; color: #fff; }
+  .profile-stats { font-size: 11px; line-height: 1.6; }
+  .stat-box { background: #fff8d0; border: 1px solid #d0b040; padding: 8px; margin-bottom: 10px; font-size: 11px; }
+  .edit-btn { background: linear-gradient(#f4f4f4, #b0b0b0); border: 1px solid #000; padding: 4px 12px; cursor: pointer; font-weight: bold; font-size: 11px; margin-top: 5px; }
+  
   .form-group { margin-bottom: 10px; }
   .form-group label { display: block; margin-bottom: 3px; font-weight: bold; color: #0a1c33; }
-  .form-group input, .form-group textarea {
-    width: 100%;
-    padding: 5px;
-    border: 1px solid #88a0b8;
-    font-family: Verdana, sans-serif;
-    font-size: 11px;
-  }
+  .form-group input, .form-group textarea { width: 100%; padding: 5px; border: 1px solid #88a0b8; font-family: Verdana, sans-serif; font-size: 11px; }
   .form-group textarea { height: 60px; resize: vertical; }
-  
   .form-actions { display: flex; gap: 10px; }
-  .btn-save {
-    background: linear-gradient(#4caf50, #2a7a2a);
-    color: #fff;
-    border: 1px solid #000;
-    padding: 5px 15px;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 11px;
-    text-shadow: 1px 1px 0 #000;
-  }
-  .btn-cancel {
-    background: linear-gradient(#f4f4f4, #b0b0b0);
-    border: 1px solid #000;
-    padding: 5px 15px;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 11px;
-  }
+  .btn-save { background: linear-gradient(#4caf50, #2a7a2a); color: #fff; border: 1px solid #000; padding: 5px 15px; font-weight: bold; cursor: pointer; font-size: 11px; text-shadow: 1px 1px 0 #000; }
+  .btn-cancel { background: linear-gradient(#f4f4f4, #b0b0b0); border: 1px solid #000; padding: 5px 15px; font-weight: bold; cursor: pointer; font-size: 11px; }
 
-  /* ===== АВТОРИЗАЦИЯ ===== */
-  .auth-box {
-    background: #eef3f7;
-    border: 1px solid #a0b8cc;
-    padding: 15px;
-    max-width: 300px;
-    margin: 20px auto;
-  }
+  .auth-box { background: #eef3f7; border: 1px solid #a0b8cc; padding: 15px; max-width: 300px; margin: 20px auto; }
   .auth-box h3 { margin-top: 0; font-size: 13px; color: #0a1c33; }
-  .auth-submit {
-    width: 100%;
-    background: linear-gradient(#4a7ab0, #2c5686);
-    color: #fff;
-    border: 1px solid #0a1c33;
-    padding: 6px;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 11px;
-    margin-top: 5px;
-  }
-  .auth-switch {
-    text-align: center;
-    margin-top: 10px;
-    font-size: 10px;
-  }
+  .auth-submit { width: 100%; background: linear-gradient(#4a7ab0, #2c5686); color: #fff; border: 1px solid #0a1c33; padding: 6px; font-weight: bold; cursor: pointer; font-size: 11px; margin-top: 5px; }
+  .auth-switch { text-align: center; margin-top: 10px; font-size: 10px; }
   .auth-switch a { color: #003399; cursor: pointer; text-decoration: underline; }
 
-  /* ===== АЛЕРТЫ ===== */
-  #customAlert {
-    display: none;
-    position: fixed;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    background: #fff;
-    border: 2px solid #0a1c33;
-    padding: 20px;
-    text-align: center;
-    z-index: 1000;
-    box-shadow: 0 0 0 2000px rgba(0,0,0,0.5);
-    font-size: 12px;
-    font-weight: bold;
-    max-width: 300px;
-  }
-  #customAlert button {
-    margin-top: 15px;
-    background: linear-gradient(#f4f4f4, #b0b0b0);
-    border: 1px solid #000;
-    padding: 4px 20px;
-    cursor: pointer;
-    font-weight: bold;
-  }
+  #customAlert { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; border: 2px solid #0a1c33; padding: 20px; text-align: center; z-index: 1000; box-shadow: 0 0 0 2000px rgba(0,0,0,0.5); font-size: 12px; font-weight: bold; max-width: 300px; }
+  #customAlert button { margin-top: 15px; background: linear-gradient(#f4f4f4, #b0b0b0); border: 1px solid #000; padding: 4px 20px; cursor: pointer; font-weight: bold; }
+
+  /* Оверлей для игры */
+  #gameOverlay { display: none; position: fixed; inset: 0; z-index: 9999; background: #000; flex-direction: column; }
+  #gameOverlay iframe { width: 100%; height: 100%; border: none; }
+  #closeGameBtn { position: absolute; top: 10px; right: 10px; z-index: 10000; background: red; color: white; border: 1px solid black; padding: 5px 10px; font-weight: bold; cursor: pointer; }
 </style>
 </head>
 <body>
 
-<!-- ШАПКА -->
 <header>
   <div class="logo" onclick="goTo('home')">NEXUS<span>.</span></div>
   <div class="auth-status" id="authStatus"></div>
 </header>
 
-<!-- НАВИГАЦИЯ -->
 <nav>
   <a id="nav-home" class="active" onclick="goTo('home')">Главная</a>
   <a id="nav-games" onclick="goTo('games')">Игры</a>
   <a id="nav-profile" onclick="goTo('profile')">Профиль</a>
 </nav>
 
-<!-- КОНТЕНТ -->
 <div class="container">
-
-  <!-- Главная -->
   <div id="home" class="page active">
     <h2 class="page-title">Добро пожаловать в NEXUS!</h2>
     <p>Этот сайт сделан в лучших традициях 2006 года. Здесь ты можешь играть и общаться.</p>
-    <div class="stat-box">
-      <b>Внимание:</b> Чтобы начать, создай аккаунт!
-    </div>
+    <div class="stat-box"><b>Внимание:</b> Чтобы начать, создай аккаунт!</div>
   </div>
 
-  <!-- Игры (Пусто) -->
   <div id="games" class="page">
     <h2 class="page-title">Все игры</h2>
-    <div class="empty-games" id="gameList">
-      Игр пока нет.<br>Они появятся здесь позже.
+    <div id="gameList">
+      <!-- Игра добавлена сюда -->
+      <div class="game-item">
+        <div class="game-icon">🌍</div>
+        <div class="game-info">
+          <div class="game-title">NEXUS: Мультиплеер (Прототип)</div>
+          <div class="game-stats">Игроков сейчас: <b>1</b></div>
+        </div>
+        <button class="play-btn" onclick="openGame()">Играть</button>
+      </div>
     </div>
   </div>
 
-  <!-- Профиль -->
   <div id="profile" class="page">
     <div id="profileContent"></div>
   </div>
 
-  <!-- Авторизация -->
   <div id="auth" class="page">
     <div class="auth-box" id="loginBox">
       <h3>Вход в аккаунт</h3>
-      <div class="form-group">
-        <label>Логин:</label>
-        <input type="text" id="loginUser" placeholder="Введи логин">
-      </div>
-      <div class="form-group">
-        <label>Пароль:</label>
-        <input type="password" id="loginPass" placeholder="Введи пароль">
-      </div>
+      <div class="form-group"><label>Логин:</label><input type="text" id="loginUser" placeholder="Введи логин"></div>
+      <div class="form-group"><label>Пароль:</label><input type="password" id="loginPass" placeholder="Введи пароль"></div>
       <button class="auth-submit" onclick="loginUser()">Войти</button>
-      <div class="auth-switch">
-        Нет аккаунта? <a onclick="switchAuth('reg')">Создать</a>
-      </div>
+      <div class="auth-switch">Нет аккаунта? <a onclick="switchAuth('reg')">Создать</a></div>
     </div>
 
     <div class="auth-box" id="regBox" style="display:none;">
       <h3>Создание аккаунта</h3>
-      <div class="form-group">
-        <label>Логин (ник):</label>
-        <input type="text" id="regUser" placeholder="Придумай ник">
-      </div>
-      <div class="form-group">
-        <label>Пароль:</label>
-        <input type="password" id="regPass" placeholder="Придумай пароль">
-      </div>
+      <div class="form-group"><label>Логин (ник):</label><input type="text" id="regUser" placeholder="Придумай ник"></div>
+      <div class="form-group"><label>Пароль:</label><input type="password" id="regPass" placeholder="Придумай пароль"></div>
       <button class="auth-submit" onclick="registerUser()">Создать аккаунт</button>
-      <div class="auth-switch">
-        Уже есть аккаунт? <a onclick="switchAuth('log')">Войти</a>
-      </div>
+      <div class="auth-switch">Уже есть аккаунт? <a onclick="switchAuth('log')">Войти</a></div>
     </div>
   </div>
-
 </div>
 
-<!-- Кастомный Alert -->
 <div id="customAlert">
   <div id="alertText">Текст</div>
   <button onclick="closeAlert()">ОК</button>
 </div>
 
+<!-- Оверлей для полноэкранной игры -->
+<div id="gameOverlay">
+  <button id="closeGameBtn" onclick="closeGame()">✖ ЗАКРЫТЬ ИГРУ</button>
+  <iframe id="gameFrame" src=""></iframe>
+</div>
+
 <script>
-  // ===== ДАННЫЕ =====
-  // Игр больше нет, массив пустой
-  let gamesData = []; 
   let currentUser = null;
 
-  // ===== ИНИЦИАЛИЗАЦИЯ =====
   function init() {
-    // Загружаем аккаунт
     const savedUser = localStorage.getItem('nexus_currentUser');
-    if (savedUser) {
-      currentUser = JSON.parse(savedUser);
-    }
-
+    if (savedUser) currentUser = JSON.parse(savedUser);
     renderAuthStatus();
     renderProfile();
   }
 
-  // ===== РЕНДЕР АВТОРИЗАЦИИ =====
   function renderAuthStatus() {
     const status = document.getElementById('authStatus');
     if (currentUser) {
-      status.innerHTML = `
-        <span>Привет, <b>${currentUser.username}</b>!</span>
-        <button class="auth-btn" onclick="logout()">Выйти</button>
-      `;
+      status.innerHTML = `<span>Привет, <b>${currentUser.username}</b>!</span><button class="auth-btn" onclick="logout()">Выйти</button>`;
     } else {
-      status.innerHTML = `
-        <button class="auth-btn" onclick="goTo('auth'); switchAuth('log')">Войти</button>
-      `;
+      status.innerHTML = `<button class="auth-btn" onclick="goTo('auth'); switchAuth('log')">Войти</button>`;
     }
   }
 
-  // ===== РЕНДЕР ПРОФИЛЯ =====
   function renderProfile() {
     const box = document.getElementById('profileContent');
     if (!currentUser) {
       box.innerHTML = `<h2 class="page-title">Профиль</h2><p>Вы не вошли в аккаунт.</p>`;
       return;
     }
-
-    // Если вдруг у старого пользователя нет поля "about", добавляем дефолтное
-    if (!currentUser.about) {
-      currentUser.about = "Привет! Я игрок NEXUS.";
-    }
+    if (!currentUser.about) currentUser.about = "Привет! Я игрок NEXUS.";
 
     box.innerHTML = `
       <h2 class="page-title">Мой профиль</h2>
@@ -378,35 +163,20 @@
         <div class="avatar-big">${currentUser.username.charAt(0).toUpperCase()}</div>
         <div>
           <h3 style="margin:0 0 5px 0; color:#003399;">${currentUser.username}</h3>
-          <div class="profile-stats">
-            Дата регистрации: <b>${currentUser.date}</b><br>
-            Баланс: <b>${currentUser.money} NEX</b><br>
-            Друзей: <b>${currentUser.friends}</b>
-          </div>
+          <div class="profile-stats">Дата регистрации: <b>${currentUser.date}</b><br>Баланс: <b>${currentUser.money} NEX</b><br>Друзей: <b>${currentUser.friends}</b></div>
         </div>
       </div>
-      <div class="stat-box">
-        <b>О себе:</b><br>
-        ${currentUser.about}
-      </div>
+      <div class="stat-box"><b>О себе:</b><br>${currentUser.about}</div>
       <button class="edit-btn" onclick="showEditProfile()">Редактировать профиль</button>
     `;
   }
 
-  // ===== РЕДАКТИРОВАНИЕ ПРОФИЛЯ =====
   function showEditProfile() {
-    const box = document.getElementById('profileContent');
-    box.innerHTML = `
+    document.getElementById('profileContent').innerHTML = `
       <h2 class="page-title">Редактирование</h2>
       <div class="stat-box">
-        <div class="form-group">
-          <label>Новый ник:</label>
-          <input type="text" id="editUser" value="${currentUser.username}">
-        </div>
-        <div class="form-group">
-          <label>О себе:</label>
-          <textarea id="editAbout">${currentUser.about}</textarea>
-        </div>
+        <div class="form-group"><label>Новый ник:</label><input type="text" id="editUser" value="${currentUser.username}"></div>
+        <div class="form-group"><label>О себе:</label><textarea id="editAbout">${currentUser.about}</textarea></div>
         <div class="form-actions">
           <button class="btn-save" onclick="saveProfile()">Сохранить</button>
           <button class="btn-cancel" onclick="renderProfile()">Отмена</button>
@@ -418,110 +188,56 @@
   function saveProfile() {
     const newNick = document.getElementById('editUser').value.trim();
     const newAbout = document.getElementById('editAbout').value.trim();
-
-    if (newNick.length < 3) {
-      showAlert("Ник должен быть от 3 символов!");
-      return;
-    }
+    if (newNick.length < 3) { showAlert("Ник должен быть от 3 символов!"); return; }
 
     let users = JSON.parse(localStorage.getItem('nexus_users') || '{}');
-
-    // Если ник изменился, проверяем, не занят ли он
     if (newNick !== currentUser.username) {
-      if (users[newNick]) {
-        showAlert("Этот ник уже занят другим игроком!");
-        return;
-      }
-      // Удаляем старый ключ и создаем новый
+      if (users[newNick]) { showAlert("Этот ник уже занят!"); return; }
       delete users[currentUser.username];
       currentUser.username = newNick;
     }
-
     currentUser.about = newAbout;
-    
-    // Обновляем в базе и в текущем юзере
     users[currentUser.username] = currentUser;
     localStorage.setItem('nexus_users', JSON.stringify(users));
     localStorage.setItem('nexus_currentUser', JSON.stringify(currentUser));
-
-    showAlert("Профиль успешно обновлен!");
-    renderAuthStatus();
-    renderProfile();
+    showAlert("Профиль обновлен!");
+    renderAuthStatus(); renderProfile();
   }
 
-  // ===== РЕГИСТРАЦИЯ =====
   function registerUser() {
     const user = document.getElementById('regUser').value.trim();
     const pass = document.getElementById('regPass').value.trim();
-
-    if (user.length < 3) { showAlert("Логин должен быть от 3 символов!"); return; }
-    if (pass.length < 3) { showAlert("Пароль должен быть от 3 символов!"); return; }
+    if (user.length < 3 || pass.length < 3) { showAlert("Логин и пароль от 3 символов!"); return; }
 
     let users = JSON.parse(localStorage.getItem('nexus_users') || '{}');
-    if (users[user]) {
-      showAlert("Этот логин уже занят! Выбери другой.");
-      return;
-    }
+    if (users[user]) { showAlert("Логин занят!"); return; }
 
-    const today = new Date().toLocaleDateString('ru-RU');
-    const newUser = {
-      username: user,
-      password: pass,
-      date: today,
-      money: 0,
-      friends: 0,
-      about: "Привет! Я игрок NEXUS."
-    };
-
+    const newUser = { username: user, password: pass, date: new Date().toLocaleDateString('ru-RU'), money: 0, friends: 0, about: "Привет!" };
     users[user] = newUser;
     localStorage.setItem('nexus_users', JSON.stringify(users));
-
     currentUser = newUser;
     localStorage.setItem('nexus_currentUser', JSON.stringify(currentUser));
-
-    showAlert("Аккаунт " + user + " создан!");
-    renderAuthStatus();
-    renderProfile();
-    goTo('home');
+    showAlert("Аккаунт создан!"); renderAuthStatus(); renderProfile(); goTo('home');
   }
 
-  // ===== ВХОД =====
   function loginUser() {
     const user = document.getElementById('loginUser').value.trim();
     const pass = document.getElementById('loginPass').value.trim();
-
-    if (!user || !pass) { showAlert("Заполни логин и пароль!"); return; }
-
     let users = JSON.parse(localStorage.getItem('nexus_users') || '{}');
-    if (!users[user]) {
-      showAlert("Аккаунт не найден! Создай новый.");
-      return;
-    }
-    if (users[user].password !== pass) {
-      showAlert("Неверный пароль!");
-      return;
-    }
-
+    
+    if (!users[user] || users[user].password !== pass) { showAlert("Неверный логин или пароль!"); return; }
+    
     currentUser = users[user];
     localStorage.setItem('nexus_currentUser', JSON.stringify(currentUser));
-
-    showAlert("Успешный вход! Привет, " + user);
-    renderAuthStatus();
-    renderProfile();
-    goTo('home');
+    showAlert("Успешный вход!"); renderAuthStatus(); renderProfile(); goTo('home');
   }
 
-  // ===== ВЫХОД =====
   function logout() {
     currentUser = null;
     localStorage.removeItem('nexus_currentUser');
-    renderAuthStatus();
-    renderProfile();
-    showAlert("Ты вышел из аккаунта.");
-    goTo('home');
+    renderAuthStatus(); renderProfile(); goTo('home');
   }
 
-  // ===== ПЕРЕКЛЮЧЕНИЕ ФОРМ =====
   function switchAuth(type) {
     document.getElementById('loginBox').style.display = 'none';
     document.getElementById('regBox').style.display = 'none';
@@ -529,29 +245,36 @@
     if (type === 'reg') document.getElementById('regBox').style.display = 'block';
   }
 
-  // ===== НАВИГАЦИЯ =====
   function goTo(pageId) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
-
     document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
-    if (document.getElementById('nav-' + pageId)) {
-      document.getElementById('nav-' + pageId).classList.add('active');
-    }
+    if (document.getElementById('nav-' + pageId)) document.getElementById('nav-' + pageId).classList.add('active');
   }
 
-  // ===== СВОЙ ALERT =====
+  // --- ЗАПУСК ИГРЫ В ОВЕРЛЕЕ ---
+  function openGame() {
+    if (!currentUser) {
+      showAlert("Чтобы играть, нужно войти в аккаунт!");
+      goTo('auth');
+      return;
+    }
+    document.getElementById('gameFrame').src = 'game.html';
+    document.getElementById('gameOverlay').style.display = 'flex';
+  }
+
+  function closeGame() {
+    document.getElementById('gameOverlay').style.display = 'none';
+    document.getElementById('gameFrame').src = ''; // Останавливаем игру
+  }
+
   function showAlert(text) {
     document.getElementById('alertText').innerText = text;
     document.getElementById('customAlert').style.display = 'block';
   }
-  function closeAlert() {
-    document.getElementById('customAlert').style.display = 'none';
-  }
+  function closeAlert() { document.getElementById('customAlert').style.display = 'none'; }
 
-  // Запуск
   init();
 </script>
-
 </body>
 </html>
