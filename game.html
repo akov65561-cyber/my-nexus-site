@@ -3,148 +3,297 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>NEXUS Game — Прототип</title>
+    <title>NEXUS — Игра (Стиль 2006)</title>
     <style>
+        /* ===== СТИЛЬ САЙТА 2006 ===== */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden; /* Убираем прокрутку */
-            background: #111;
-            font-family: monospace;
-            color: white;
+            background: #3a5a7a;
+            font-family: Verdana, Tahoma, Arial, sans-serif;
+            font-size: 11px;
+            color: #222;
+            overflow: hidden; /* Запрещаем скролл страницы */
         }
-        canvas {
-            display: block;
+        
+        /* Шапка сайта */
+        header {
+            background: linear-gradient(#0d2c54, #1a4f8a 50%, #0d2c54);
+            border-bottom: 2px solid #000;
+            color: #fff;
+            padding: 6px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 40px;
         }
-        #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.5);
+        .logo {
+            font-family: "Arial Black", Impact, sans-serif;
+            font-size: 18px;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 0 #000;
+        }
+        .logo span { color: #ffcc00; }
+        .user-info { font-weight: bold; }
+
+        /* Навигация */
+        nav {
+            background: linear-gradient(#4a7ab0, #2c5686);
+            border-bottom: 2px solid #0a1c33;
+            padding: 4px 12px;
+            color: #fff;
+            display: flex;
+            gap: 15px;
+        }
+        nav a { color: #fff; text-decoration: none; font-weight: bold; cursor: pointer; }
+        nav a:hover { color: #ffcc00; }
+
+        /* Контейнер для игры */
+        .game-container {
+            display: flex;
+            height: calc(100vh - 65px);
             padding: 10px;
-            border: 1px solid #555;
+            gap: 10px;
+            background: #d8e0e8;
+        }
+
+        /* Боковые панели */
+        .sidebar {
+            width: 180px;
+            background: #fff;
+            border: 2px solid #0a1c33;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar h3 {
+            background: linear-gradient(#4a7ab0, #2c5686);
+            color: #fff;
+            padding: 4px;
+            font-size: 11px;
+            border-bottom: 1px solid #0a1c33;
+            text-shadow: 1px 1px 0 #000;
+            text-align: center;
+        }
+        .sidebar-content {
+            padding: 8px;
+            line-height: 1.6;
+        }
+
+        /* Канвас (холст) */
+        .canvas-wrapper {
+            flex: 1;
+            border: 2px solid #0a1c33;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* Инструкция поверх игры */
+        .controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid #000;
+            padding: 6px;
+            font-weight: bold;
             pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-    <!-- Наш холст, на котором будем рисовать -->
-    <canvas id="gameCanvas"></canvas>
-    
-    <div id="ui">
-        <b>Управление:</b><br>
-        WASD — ходить<br>
-        ← → — двигать камеру
+    <!-- Шапка сайта -->
+    <header>
+        <div class="logo">NEXUS<span>.</span></div>
+        <div class="user-info">Игрок: Builder2006</div>
+    </header>
+    <nav>
+        <a href="index.html">← Вернуться на главную</a>
+        <a>Игра: Прототип</a>
+    </nav>
+
+    <!-- Оболочка игры -->
+    <div class="game-container">
+        <!-- Левая панель -->
+        <div class="sidebar">
+            <h3>Инвентарь</h3>
+            <div class="sidebar-content">
+                Слот 1: Пусто<br>
+                Слот 2: Пусто<br>
+                Слот 3: Пусто
+            </div>
+            <h3>Статистика</h3>
+            <div class="sidebar-content">
+                Здоровье: 100/100<br>
+                Голод: 100/100<br>
+                Монеты: 0
+            </div>
+        </div>
+
+        <!-- Сама игра -->
+        <div class="canvas-wrapper">
+            <canvas id="gameCanvas"></canvas>
+            <div class="controls">
+                WASD — Ходить<br>
+                ← → — Двигать камеру
+            </div>
+        </div>
+
+        <!-- Правая панель -->
+        <div class="sidebar">
+            <h3>Чат</h3>
+            <div class="sidebar-content">
+                [Система]: Приветствие в NEXUS!<br>
+                [Система]: Управление WASD.
+            </div>
+        </div>
     </div>
 
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+    const wrapper = document.querySelector('.canvas-wrapper');
 
-    // Растягиваем холст на весь экран
+    // Растягиваем холст под размер контейнера
     function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        canvas.width = wrapper.clientWidth;
+        canvas.height = wrapper.clientHeight;
     }
     window.addEventListener('resize', resize);
     resize();
 
-    // --- ИГРОВЫЕ ОБЪЕКТЫ ---
-    // Наш персонаж
-    const player = {
-        x: 0,        // Позиция в мире
-        y: 0,
-        speed: 5,
-        size: 30,
-        color: '#00b06f' // Зеленый квадратик
-    };
+    // --- ИЗОМЕТРИЧЕСКАЯ МАТЕМАТИКА ---
+    // Превращает мировые координаты (x, y) в экранные (screenX, screenY) под углом
+    const TILE_WIDTH = 64;
+    const TILE_HEIGHT = 32;
 
-    // Камера (то, как мы смотрим на мир)
-    const camera = {
-        x: 0,        // Смещение камеры
-        y: 0,
-        speed: 6
-    };
-
-    // Отслеживаем нажатые клавиши
-    const keys = {};
-
-    window.addEventListener('keydown', (e) => {
-        keys[e.key.toLowerCase()] = true;
-        // Предотвращаем скролл страницы стрелочками
-        if(['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
-            e.preventDefault();
-        }
-    });
-
-    window.addEventListener('keyup', (e) => {
-        keys[e.key.toLowerCase()] = false;
-    });
-
-    // --- ИГРОВОЙ ЦИКЛ ---
-    function update() {
-        // 1. ДВИЖЕНИЕ ПЕРСОНАЖА (WASD)
-        if (keys['w']) player.y -= player.speed;
-        if (keys['s']) player.y += player.speed;
-        if (keys['a']) player.x -= player.speed;
-        if (keys['d']) player.x += player.speed;
-
-        // 2. ДВИЖЕНИЕ КАМЕРЫ (Только влево-вправо)
-        // Вверх и вниз игнорируем!
-        if (keys['arrowleft'])  camera.x -= camera.speed;
-        if (keys['arrowright']) camera.x += camera.speed;
+    function toIso(x, y) {
+        return {
+            x: (x - y) * (TILE_WIDTH / 2),
+            y: (x + y) * (TILE_HEIGHT / 2)
+        };
     }
 
+    // --- ОБЪЕКТЫ ---
+    const player = { x: 0, y: 0, speed: 0.1 }; // x и y теперь в тайлах, не в пикселях
+    let cameraX = 0; // Смещение камеры
+
+    // Деревья (для ориентира)
+    const trees = [
+        { x: 2, y: 1 },
+        { x: -3, y: -2 },
+        { x: 4, y: -3 },
+        { x: -1, y: 3 }
+    ];
+
+    // --- УПРАВЛЕНИЕ (РАБОТАЕТ НА ЛЮБОЙ РАСКЛАДКЕ) ---
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+        // Используем e.code (физическая кнопка), а не e.key
+        keys[e.code] = true;
+        if(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) {
+            e.preventDefault(); // Отменяем скролл
+        }
+    });
+    window.addEventListener('keyup', (e) => {
+        keys[e.code] = false;
+    });
+
+    // --- ЦИКЛ ОБНОВЛЕНИЯ ---
+    function update() {
+        // Движение WASD (KeyW, KeyA, KeyS, KeyD)
+        // В изометрии W (вверх) — это уменьшение X и Y одновременно
+        if (keys['KeyW']) { player.x -= player.speed; player.y -= player.speed; }
+        if (keys['KeyS']) { player.x += player.speed; player.y += player.speed; }
+        if (keys['KeyA']) { player.x -= player.speed; player.y += player.speed; }
+        if (keys['KeyD']) { player.x += player.speed; player.y -= player.speed; }
+
+        // Камера (только влево-вправо)
+        if (keys['ArrowLeft'])  cameraX -= 5;
+        if (keys['ArrowRight']) cameraX += 5;
+    }
+
+    // --- РИСОВАНИЕ ---
     function draw() {
-        // Очищаем экран
-        ctx.fillStyle = '#222';
+        ctx.fillStyle = '#87CEEB'; // Небо
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Рисуем "сетку" земли, чтобы было видно движение камеры
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 2;
-        const gridSize = 50;
+        // Центр экрана
+        const centerX = canvas.width / 2 + cameraX;
+        const centerY = canvas.height / 2;
+
+        // Камера привязана к игроку (но мы смещаем обзор стрелками)
+        const pScreen = toIso(player.x, player.y);
+
+        // 1. Рисуем пол (сетку из ромбов)
+        ctx.strokeStyle = '#6B8E23'; // Цвет травы
+        ctx.lineWidth = 1;
+        ctx.fillStyle = '#8FBC8F';
         
-        // Вычисляем, где начинать рисовать сетку с учетом камеры
-        const startX = -camera.x % gridSize;
-        
-        for (let x = startX; x < canvas.width; x += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, canvas.height);
-            ctx.stroke();
-        }
-        for (let y = 0; y < canvas.height; y += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(canvas.width, y);
-            ctx.stroke();
+        for (let x = -10; x <= 10; x++) {
+            for (let y = -10; y <= 10; y++) {
+                const s = toIso(x, y);
+                const drawX = centerX + s.x - pScreen.x;
+                const drawY = centerY + s.y - pScreen.y;
+
+                // Рисуем ромб
+                ctx.beginPath();
+                ctx.moveTo(drawX, drawY - TILE_HEIGHT/2);
+                ctx.lineTo(drawX + TILE_WIDTH/2, drawY);
+                ctx.lineTo(drawX, drawY + TILE_HEIGHT/2);
+                ctx.lineTo(drawX - TILE_WIDTH/2, drawY);
+                ctx.closePath();
+                ctx.stroke();
+                if ((x+y) % 2 === 0) ctx.fill(); // Шахматный порядок
+            }
         }
 
-        // Рисуем персонажа
-        // Экранная позиция = позиция в мире - позиция камеры + центр экрана
-        const screenX = (canvas.width / 2) + (player.x - camera.x);
-        const screenY = (canvas.height / 2) + (player.y - camera.y);
+        // 2. Рисуем деревья (или кубы)
+        trees.forEach(t => {
+            const s = toIso(t.x, t.y);
+            const drawX = centerX + s.x - pScreen.x;
+            const drawY = centerY + s.y - pScreen.y;
+            drawBlock(drawX, drawY, 40, 60, '#8B4513'); // Ствол
+        });
 
-        ctx.fillStyle = player.color;
-        ctx.fillRect(screenX - player.size/2, screenY - player.size/2, player.size, player.size);
+        // 3. Рисуем ИГРОКА (Роблокс-стайл из блоков)
+        const pDrawX = centerX;
+        const pDrawY = centerY;
         
-        // Рисуем полоску-глаз, чтобы видеть, куда он смотрит
-        ctx.fillStyle = 'white';
-        ctx.fillRect(screenX - 5, screenY - 10, 10, 5);
+        // Ноги
+        drawBlock(pDrawX - 10, pDrawY + 10, 10, 15, '#3a6ea5');
+        drawBlock(pDrawX + 0, pDrawY + 10, 10, 15, '#3a6ea5');
+        // Торс
+        drawBlock(pDrawX - 15, pDrawY - 10, 30, 25, '#ffcc00');
+        // Голова
+        drawBlock(pDrawX - 10, pDrawY - 35, 20, 20, '#ffcc00');
+        // Глаза
+        ctx.fillStyle = '#000';
+        ctx.fillRect(pDrawX - 5, pDrawY - 28, 3, 5);
+        ctx.fillRect(pDrawX + 2, pDrawY - 28, 3, 5);
     }
 
-    // Главный цикл (вызывается 60 раз в секунду)
+    // Вспомогательная функция для рисования 3D-блоков
+    function drawBlock(x, y, w, h, color) {
+        // Передняя часть
+        ctx.fillStyle = color;
+        ctx.fillRect(x - w/2, y - h, w, h);
+        // Обводка
+        ctx.strokeStyle = '#000';
+        ctx.strokeRect(x - w/2, y - h, w, h);
+        // Блик
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillRect(x - w/2, y - h, w/4, h);
+    }
+
     function gameLoop() {
         update();
         draw();
         requestAnimationFrame(gameLoop);
     }
 
-    // Запуск
     gameLoop();
-
 </script>
 </body>
 </html>
