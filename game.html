@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>NEXUS — Мультиплеер</title>
+    <title>NEXUS — Игра</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #3a5a7a; font-family: Verdana, Tahoma, Arial, sans-serif; font-size: 11px; color: #222; overflow: hidden; }
@@ -87,31 +87,25 @@
     const TILE_WIDTH = 64;
     const TILE_HEIGHT = 32;
 
-    // --- МОЙ ИГРОК ---
-    const player = { x: 0, y: 0, speed: 0.08, radius: 0.3, facing: 'down' };
-    let walkTime = 0; 
+    const player = { x: 0, y: 0, speed: 0.08, facing: 'down' };
     let isMoving = false;
-
-    // --- ДРУГИЕ ИГРОКИ ---
-    // Сюда сервер будет записывать других игроков: { "id_игрока": {x, y, facing, moving} }
     let otherPlayers = {};
+    
+    // Глобальный таймер для плавной анимации всех
+    let globalTick = 0;
 
     const trees = [
-        { x: 2, y: 1, type: 'tree' },
-        { x: -2, y: -1, type: 'tree' },
-        { x: 3, y: -2, type: 'tree' },
-        { x: -1, y: 2, type: 'tree' },
-        { x: 1, y: 3, type: 'tree' }
+        { x: 2, y: 1 }, { x: -2, y: -1 }, { x: 3, y: -2 }, { x: -1, y: 2 }, { x: 1, y: 3 }
     ];
 
     const keys = {};
     window.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.target.tagName === 'INPUT') return;
         keys[e.code] = true; 
         if(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.target.tagName === 'INPUT') return;
         keys[e.code] = false;
     });
 
@@ -126,55 +120,31 @@
         return { x: (rotX - rotY) * (TILE_WIDTH / 2), y: (rotX + rotY) * (TILE_HEIGHT / 2) };
     }
 
-    // --- ПОДКЛЮЧЕНИЕ К PYTHON СЕРВЕРУ ---
+    // --- СЕТЬ ---
     const ws = new WebSocket('ws://localhost:8765');
     const chatMessages = document.getElementById('chat-messages');
 
-    ws.onopen = () => {
-        addChatMessage('[Система]: Успешно подключено к серверу!');
-    };
-
-    ws.onclose = () => {
-        addChatMessage('[Система]: Соединение с сервером потеряно.');
-    };
-
+    ws.onopen = () => addChatMessage('[Система]: Успешно подключено!');
+    ws.onclose = () => addChatMessage('[Система]: Сервер выключен.');
+    
     ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
-        
         if (msg.type === 'update') {
-            // Кто-то другой сдвинулся
             otherPlayers[msg.id] = msg.data;
-        } 
-        else if (msg.type === 'disconnect') {
-            // Кто-то вышел
+        } else if (msg.type === 'disconnect') {
             delete otherPlayers[msg.id];
-            addChatMessage(`[Система]: Игрок отключился.`);
         }
     };
 
-    // Отправляем свои координаты 20 раз в секунду (каждые 50мс)
     setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-                x: player.x,
-                y: player.y,
-                facing: player.facing,
-                moving: isMoving
-            }));
+            ws.send(JSON.stringify({ x: player.x, y: player.y, facing: player.facing, moving: isMoving }));
         }
     }, 50);
 
     function update() {
-        if (keys['ArrowLeft']) {
-            cameraStep = (cameraStep + 3) % 4;
-            cameraAngle = cameraStep * (Math.PI / 2);
-            keys['ArrowLeft'] = false; 
-        }
-        if (keys['ArrowRight']) {
-            cameraStep = (cameraStep + 1) % 4;
-            cameraAngle = cameraStep * (Math.PI / 2);
-            keys['ArrowRight'] = false;
-        }
+        if (keys['ArrowLeft']) { cameraStep = (cameraStep + 3) % 4; cameraAngle = cameraStep * (Math.PI / 2); keys['ArrowLeft'] = false; }
+        if (keys['ArrowRight']) { cameraStep = (cameraStep + 1) % 4; cameraAngle = cameraStep * (Math.PI / 2); keys['ArrowRight'] = false; }
 
         let scrDx = 0, scrDy = 0;
         if (keys['KeyW']) scrDy -= 1;
@@ -183,15 +153,10 @@
         if (keys['KeyD']) scrDx += 1;
 
         if (scrDx !== 0 || scrDy !== 0) {
-            if (Math.abs(scrDy) > Math.abs(scrDx)) {
-                player.facing = scrDy < 0 ? 'up' : 'down';
-            } else {
-                player.facing = scrDx < 0 ? 'left' : 'right';
-            }
-
+            player.facing = Math.abs(scrDy) > Math.abs(scrDx) ? (scrDy < 0 ? 'up' : 'down') : (scrDx < 0 ? 'left' : 'right');
+            
             let baseX = scrDx + scrDy;
             let baseY = -scrDx + scrDy;
-
             let cos = Math.cos(cameraAngle);
             let sin = Math.sin(cameraAngle);
             let worldDx = baseX * cos + baseY * sin;
@@ -204,27 +169,17 @@
             const nextX = player.x + moveX;
             const nextY = player.y + moveY;
             let collision = false;
-
-            for (let t of trees) {
-                if (Math.hypot(nextX - t.x, nextY - t.y) < 0.7) { collision = true; break; }
-            }
+            for (let t of trees) { if (Math.hypot(nextX - t.x, nextY - t.y) < 0.7) collision = true; }
 
             if (!collision) {
-                player.x = nextX;
-                player.y = nextY;
-                isMoving = true;
-            } else {
-                isMoving = false;
-            }
-        } else {
-            isMoving = false;
-        }
-
-        if (isMoving) walkTime += 0.25;
-        else walkTime = 0;
+                player.x = nextX; player.y = nextY; isMoving = true;
+            } else isMoving = false;
+        } else isMoving = false;
     }
 
     function draw() {
+        globalTick += 0.2; // Таймер анимации
+
         ctx.fillStyle = '#87CEEB';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -237,83 +192,52 @@
         
         for (let dx = -25; dx <= 25; dx++) {
             for (let dy = -25; dy <= 25; dy++) {
-                const x = pTileX + dx;
-                const y = pTileY + dy;
+                const x = pTileX + dx; const y = pTileY + dy;
                 const s = toIso(x, y);
-                const drawX = centerX + s.x - pIso.x;
-                const drawY = centerY + s.y - pIso.y;
-
-                if (drawX < -TILE_WIDTH || drawX > canvas.width + TILE_WIDTH || 
-                    drawY < -TILE_HEIGHT || drawY > canvas.height + TILE_HEIGHT) continue;
+                const drawX = centerX + s.x - pIso.x; const drawY = centerY + s.y - pIso.y;
+                if (drawX < -64 || drawX > canvas.width + 64 || drawY < -64 || drawY > canvas.height + 64) continue;
 
                 ctx.beginPath();
-                ctx.moveTo(drawX, drawY - TILE_HEIGHT/2);
-                ctx.lineTo(drawX + TILE_WIDTH/2, drawY);
-                ctx.lineTo(drawX, drawY + TILE_HEIGHT/2);
-                ctx.lineTo(drawX - TILE_WIDTH/2, drawY);
+                ctx.moveTo(drawX, drawY - TILE_HEIGHT/2); ctx.lineTo(drawX + TILE_WIDTH/2, drawY);
+                ctx.lineTo(drawX, drawY + TILE_HEIGHT/2); ctx.lineTo(drawX - TILE_WIDTH/2, drawY);
                 ctx.closePath();
-
                 ctx.fillStyle = ((x + y) % 2 === 0) ? '#8FBC8F' : '#7CAA7C';
-                ctx.fill();
-                ctx.strokeStyle = '#6B8E23';
-                ctx.stroke();
+                ctx.fill(); ctx.strokeStyle = '#6B8E23'; ctx.stroke();
             }
         }
 
-        // Собираем всех в один массив для сортировки
-        const entities = [...trees];
-        
-        // Добавляем себя
-        entities.push({ x: player.x, y: player.y, type: 'player', data: player, isMe: true });
-        
-        // Добавляем других игроков
+        const entities = [...trees, { x: player.x, y: player.y, type: 'player', data: { facing: player.facing, moving: isMoving }, isMe: true }];
         for (let id in otherPlayers) {
             entities.push({ x: otherPlayers[id].x, y: otherPlayers[id].y, type: 'player', data: otherPlayers[id], isMe: false });
         }
-
         entities.sort((a, b) => toIso(a.x, a.y).y - toIso(b.x, b.y).y);
 
         entities.forEach(e => {
             const s = toIso(e.x, e.y);
-            const drawX = centerX + s.x - pIso.x;
-            const drawY = centerY + s.y - pIso.y;
-
-            if (e.type === 'player') {
-                // Если это Я - рисую желтым, если другой - синим
-                drawCharacter(drawX, drawY, e.data, e.isMe);
-            } else {
-                drawTree(drawX, drawY);
-            }
+            const drawX = centerX + s.x - pIso.x; const drawY = centerY + s.y - pIso.y;
+            if (e.type === 'player') drawCharacter(drawX, drawY, e.data, e.isMe);
+            else drawTree(drawX, drawY);
         });
     }
 
     function drawTree(x, y) {
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.beginPath(); ctx.ellipse(x, y, 20, 10, 0, 0, Math.PI * 2); ctx.fill();
-        const w = 20, h = 40;
-        ctx.fillStyle = '#8B4513';
-        ctx.fillRect(x - w/2, y - h, w, h);
-        ctx.strokeStyle = '#000';
-        ctx.strokeRect(x - w/2, y - h, w, h);
-        ctx.fillStyle = 'rgba(255,255,255,0.2)';
-        ctx.fillRect(x - w/2, y - h, 5, h);
+        ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(x, y, 20, 10, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#8B4513'; ctx.fillRect(x - 10, y - 40, 20, 40);
+        ctx.strokeStyle = '#000'; ctx.strokeRect(x - 10, y - 40, 20, 40);
+        ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(x - 10, y - 40, 5, 40);
     }
 
-    // Универсальная функция рисования персонажа (для себя и для других)
     function drawCharacter(x, y, charData, isMe) {
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.beginPath(); ctx.ellipse(x, y, 15, 8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(x, y, 15, 8, 0, 0, Math.PI * 2); ctx.fill();
 
-        // Цвета: Свой игрок - желтый, Другие - синий/красный
-        const skin = isMe ? '#ffcc00' : '#3498db';
+        const skin = isMe ? '#ffcc00' : '#3498db'; // Свой - желтый, Враги - синие
         const shirt = isMe ? '#ffcc00' : '#3498db';
         const pants = isMe ? '#3a6ea5' : '#2c3e50';
         const outline = '#000';
 
-        // Анимация для других игроков (они прислали свой стейт)
-        let bTime = charData.moving ? (Date.now() % 500) / 50 : 0; 
-        const bobY = charData.moving ? Math.abs(Math.sin(bTime)) * 2 : 0;
-        const swing = charData.moving ? Math.sin(bTime) * 4 : 0;
+        // Анимация
+        const bobY = charData.moving ? Math.abs(Math.sin(globalTick)) * 2 : 0;
+        const swing = charData.moving ? Math.sin(globalTick) * 4 : 0;
 
         ctx.lineWidth = 1;
 
@@ -321,78 +245,43 @@
             ctx.fillStyle = shirt; ctx.strokeStyle = outline;
             ctx.fillRect(x - 17, y - 25 + swing, 5, 15); ctx.strokeRect(x - 17, y - 25 + swing, 5, 15);
             ctx.fillRect(x + 12, y - 25 - swing, 5, 15); ctx.strokeRect(x + 12, y - 25 - swing, 5, 15);
-
             ctx.fillStyle = pants;
             ctx.fillRect(x - 8, y - 10 + swing, 7, 15); ctx.strokeRect(x - 8, y - 10 + swing, 7, 15);
             ctx.fillRect(x + 1, y - 10 - swing, 7, 15); ctx.strokeRect(x + 1, y - 10 - swing, 7, 15);
-
-            ctx.fillStyle = shirt;
-            ctx.fillRect(x - 12, y - 25 - bobY, 24, 15); ctx.strokeRect(x - 12, y - 25 - bobY, 24, 15);
-
-            ctx.fillStyle = skin;
-            ctx.fillRect(x - 10, y - 45 - bobY, 20, 20); ctx.strokeRect(x - 10, y - 45 - bobY, 20, 20);
-
+            ctx.fillStyle = shirt; ctx.fillRect(x - 12, y - 25 - bobY, 24, 15); ctx.strokeRect(x - 12, y - 25 - bobY, 24, 15);
+            ctx.fillStyle = skin; ctx.fillRect(x - 10, y - 45 - bobY, 20, 20); ctx.strokeRect(x - 10, y - 45 - bobY, 20, 20);
             if (charData.facing === 'down') {
-                ctx.fillStyle = '#000';
-                ctx.fillRect(x - 6, y - 38 - bobY, 4, 6); 
-                ctx.fillRect(x + 2, y - 38 - bobY, 4, 6); 
+                ctx.fillStyle = '#000'; ctx.fillRect(x - 6, y - 38 - bobY, 4, 6); ctx.fillRect(x + 2, y - 38 - bobY, 4, 6); 
             } else {
-                ctx.fillStyle = '#b38f00';
-                ctx.fillRect(x - 9, y - 44 - bobY, 18, 6);
+                ctx.fillStyle = '#b38f00'; ctx.fillRect(x - 9, y - 44 - bobY, 18, 6);
             }
         } else {
             ctx.fillStyle = shirt; ctx.strokeStyle = outline;
             ctx.fillRect(x - 2, y - 25 + swing, 5, 15); ctx.strokeRect(x - 2, y - 25 + swing, 5, 15);
-
             ctx.fillStyle = pants;
             ctx.fillRect(x - 6, y - 10 - swing, 7, 15); ctx.strokeRect(x - 6, y - 10 - swing, 7, 15);
             ctx.fillRect(x + 2, y - 10 + swing, 7, 15); ctx.strokeRect(x + 2, y - 10 + swing, 7, 15);
-
-            ctx.fillStyle = shirt;
-            ctx.fillRect(x - 8, y - 25 - bobY, 16, 15); ctx.strokeRect(x - 8, y - 25 - bobY, 16, 15);
-
-            ctx.fillStyle = skin;
-            ctx.fillRect(x - 8, y - 45 - bobY, 16, 20); ctx.strokeRect(x - 8, y - 45 - bobY, 16, 20);
-
+            ctx.fillStyle = shirt; ctx.fillRect(x - 8, y - 25 - bobY, 16, 15); ctx.strokeRect(x - 8, y - 25 - bobY, 16, 15);
+            ctx.fillStyle = skin; ctx.fillRect(x - 8, y - 45 - bobY, 16, 20); ctx.strokeRect(x - 8, y - 45 - bobY, 16, 20);
             ctx.fillStyle = '#000';
-            if (charData.facing === 'right') {
-                ctx.fillRect(x + 2, y - 38 - bobY, 4, 6); 
-                ctx.fillRect(x + 8, y - 34 - bobY, 2, 3); 
-            } else {
-                ctx.fillRect(x - 6, y - 38 - bobY, 4, 6); 
-                ctx.fillRect(x - 10, y - 34 - bobY, 2, 3); 
-            }
+            if (charData.facing === 'right') { ctx.fillRect(x + 2, y - 38 - bobY, 4, 6); ctx.fillRect(x + 8, y - 34 - bobY, 2, 3); }
+            else { ctx.fillRect(x - 6, y - 38 - bobY, 4, 6); ctx.fillRect(x - 10, y - 34 - bobY, 2, 3); }
         }
     }
 
     function addChatMessage(text) {
-        const div = document.createElement('div');
-        div.innerHTML = text;
-        chatMessages.appendChild(div);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        const div = document.createElement('div'); div.innerHTML = text;
+        chatMessages.appendChild(div); chatMessages.scrollTop = chatMessages.scrollHeight;
     }
-
     function sendMessage() {
         const input = document.getElementById('chat-input');
-        const text = input.value.trim();
-        if (text === '') return;
-        
-        addChatMessage(`<b>[Ты]:</b> ${text}`);
-        // В будущем здесь мы отправим текст на сервер, чтобы его увидели другие
-        
+        if (input.value.trim() === '') return;
+        addChatMessage(`<b>[Ты]:</b> ${input.value}`);
         input.value = '';
     }
+    document.getElementById('chat-input').addEventListener('keypress', function(e) { if (e.key === 'Enter') sendMessage(); });
 
-    document.getElementById('chat-input').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') sendMessage();
-    });
-
-    function gameLoop() {
-        update();
-        draw();
-        requestAnimationFrame(gameLoop);
-    }
-
+    function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
     gameLoop();
 </script>
 </body>
