@@ -36,6 +36,7 @@
         }
         nav a { color: #fff; text-decoration: none; font-weight: bold; cursor: pointer; }
         nav a:hover { color: #ffcc00; }
+        
         .game-container {
             display: flex;
             height: calc(100vh - 65px);
@@ -44,7 +45,7 @@
             background: #d8e0e8;
         }
         .sidebar {
-            width: 180px;
+            width: 200px;
             background: #fff;
             border: 2px solid #0a1c33;
             display: flex;
@@ -58,8 +59,10 @@
             border-bottom: 1px solid #0a1c33;
             text-shadow: 1px 1px 0 #000;
             text-align: center;
+            flex-shrink: 0;
         }
         .sidebar-content { padding: 8px; line-height: 1.6; }
+        
         .canvas-wrapper {
             flex: 1;
             border: 2px solid #0a1c33;
@@ -68,6 +71,7 @@
             overflow: hidden;
         }
         canvas { display: block; width: 100%; height: 100%; }
+        
         .controls {
             position: absolute;
             bottom: 10px;
@@ -78,6 +82,18 @@
             font-weight: bold;
             pointer-events: none;
         }
+
+        .chat-container { display: flex; flex-direction: column; height: 100%; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 6px; background: #fff; font-size: 11px; line-height: 1.4; }
+        .chat-input-area { display: flex; border-top: 1px solid #0a1c33; background: #eef3f7; flex-shrink: 0; }
+        .chat-input-area input {
+            flex: 1; border: none; padding: 6px; font-family: Verdana, sans-serif; font-size: 11px; outline: none;
+        }
+        .chat-input-area button {
+            background: linear-gradient(#4a7ab0, #2c5686); color: #fff; border: none; border-left: 1px solid #0a1c33;
+            padding: 0 12px; cursor: pointer; font-weight: bold; font-family: Verdana, sans-serif; font-size: 11px;
+        }
+        .chat-input-area button:active { background: #0a1c33; }
     </style>
 </head>
 <body>
@@ -93,33 +109,32 @@
 
     <div class="game-container">
         <div class="sidebar">
+            <h3>Здоровье</h3>
+            <div class="sidebar-content" style="color: #cc0000; font-weight: bold;">HP: 100 / 100</div>
             <h3>Инвентарь</h3>
             <div class="sidebar-content">
-                Слот 1: Пусто<br>
-                Слот 2: Пусто<br>
-                Слот 3: Пусто
-            </div>
-            <h3>Статистика</h3>
-            <div class="sidebar-content">
-                Здоровье: 100/100<br>
-                Голод: 100/100<br>
-                Монеты: 0
+                Слот 1: Пусто<br>Слот 2: Пусто<br>Слот 3: Пусто<br>Слот 4: Пусто<br>Слот 5: Пусто
             </div>
         </div>
 
         <div class="canvas-wrapper">
             <canvas id="gameCanvas"></canvas>
             <div class="controls">
-                WASD — Ходить<br>
-                ← → — Вращать камеру
+                WASD (ЦФЫВ) — Ходить<br>
+                ← → — Поворот камеры
             </div>
         </div>
 
         <div class="sidebar">
             <h3>Чат</h3>
-            <div class="sidebar-content">
-                [Система]: Управление обновлено.<br>
-                [Система]: Добавлены коллизии.
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages">
+                    <div>[Система]: Добро пожаловать в игру!</div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Введите текст..." maxlength="50">
+                    <button onclick="sendMessage()">Отпр</button>
+                </div>
             </div>
         </div>
     </div>
@@ -139,10 +154,10 @@
     const TILE_WIDTH = 64;
     const TILE_HEIGHT = 32;
 
-    // --- ИГРОВЫЕ ОБЪЕКТЫ ---
-    const player = { x: 0, y: 0, speed: 0.08, radius: 0.3 };
-    
-    // Деревья (x, y, цвет ствола)
+    const player = { x: 0, y: 0, speed: 0.08, radius: 0.3, facing: 'down' };
+    let walkTime = 0; 
+    let isMoving = false;
+
     const trees = [
         { x: 2, y: 1, type: 'tree' },
         { x: -2, y: -1, type: 'tree' },
@@ -151,84 +166,95 @@
         { x: 1, y: 3, type: 'tree' }
     ];
 
-    // --- УПРАВЛЕНИЕ ---
     const keys = {};
     window.addEventListener('keydown', (e) => {
-        keys[e.code] = true;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        keys[e.code] = true; 
         if(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         keys[e.code] = false;
     });
 
-    // --- КАМЕРА ---
-    let cameraAngle = Math.PI / 4;      // Текущий угол (начинаем с 45 градусов)
-    let targetCameraAngle = Math.PI / 4; // Целевой угол для плавного поворота
+    let cameraStep = 0; 
+    let cameraAngle = 0;
 
-    // --- МАТЕМАТИКА ИЗОМЕТРИИ С УЧЕТОМ ПОВОРОТА ---
     function toIso(x, y) {
-        // 1. Вращаем координаты вокруг центра
         const cos = Math.cos(cameraAngle);
         const sin = Math.sin(cameraAngle);
         const rotX = x * cos - y * sin;
         const rotY = x * sin + y * cos;
 
-        // 2. Проецируем в изометрию
         return {
             x: (rotX - rotY) * (TILE_WIDTH / 2),
             y: (rotX + rotY) * (TILE_HEIGHT / 2)
         };
     }
 
-    // --- ОБНОВЛЕНИЕ ---
     function update() {
-        // 1. Плавный поворот камеры
-        if (keys['ArrowLeft'])  targetCameraAngle -= 0.03;
-        if (keys['ArrowRight']) targetCameraAngle += 0.03;
-        
-        // Плавно приближаем текущий угол к целевому (интерполяция)
-        cameraAngle += (targetCameraAngle - cameraAngle) * 0.15;
+        if (keys['ArrowLeft']) {
+            cameraStep = (cameraStep + 3) % 4;
+            cameraAngle = cameraStep * (Math.PI / 2);
+            keys['ArrowLeft'] = false; 
+        }
+        if (keys['ArrowRight']) {
+            cameraStep = (cameraStep + 1) % 4;
+            cameraAngle = cameraStep * (Math.PI / 2);
+            keys['ArrowRight'] = false;
+        }
 
-        // 2. Движение персонажа
-        let moveX = 0, moveY = 0;
-        if (keys['KeyW']) moveY -= 1;
-        if (keys['KeyS']) moveY += 1;
-        if (keys['KeyA']) moveX -= 1;
-        if (keys['KeyD']) moveX += 1;
+        let scrDx = 0, scrDy = 0;
+        if (keys['KeyW']) scrDy -= 1;
+        if (keys['KeyS']) scrDy += 1;
+        if (keys['KeyA']) scrDx -= 1;
+        if (keys['KeyD']) scrDx += 1;
 
-        if (moveX !== 0 || moveY !== 0) {
-            // Нормализуем вектор (чтобы по диагонали не было быстрее)
-            const len = Math.hypot(moveX, moveY);
-            moveX /= len;
-            moveY /= len;
-
-            // Поворачиваем вектор движения в зависимости от угла камеры
-            const cos = Math.cos(-cameraAngle);
-            const sin = Math.sin(-cameraAngle);
-            const rotMoveX = moveX * cos - moveY * sin;
-            const rotMoveY = moveX * sin + moveY * cos;
-
-            // Проверяем коллизии (новые координаты)
-            const nextX = player.x + rotMoveX * player.speed;
-            const nextY = player.y + rotMoveY * player.speed;
-
-            let collision = false;
-            for (let t of trees) {
-                // Расстояние между центрами
-                const dist = Math.hypot(nextX - t.x, nextY - t.y);
-                // Если расстояние меньше суммы радиусов (0.3 + 0.4) - это коллизия
-                if (dist < 0.7) { collision = true; break; }
+        if (scrDx !== 0 || scrDy !== 0) {
+            if (Math.abs(scrDy) > Math.abs(scrDx)) {
+                player.facing = scrDy < 0 ? 'up' : 'down';
+            } else {
+                player.facing = scrDx < 0 ? 'left' : 'right';
             }
 
-            // Если нет коллизии — двигаем
+            let baseX = scrDx + scrDy;
+            let baseY = -scrDx + scrDy;
+
+            let cos = Math.cos(cameraAngle);
+            let sin = Math.sin(cameraAngle);
+            let worldDx = baseX * cos + baseY * sin;
+            let worldDy = -baseX * sin + baseY * cos;
+
+            const len = Math.hypot(worldDx, worldDy);
+            const moveX = (worldDx / len) * player.speed;
+            const moveY = (worldDy / len) * player.speed;
+
+            const nextX = player.x + moveX;
+            const nextY = player.y + moveY;
+            let collision = false;
+
+            for (let t of trees) {
+                if (Math.hypot(nextX - t.x, nextY - t.y) < 0.7) { collision = true; break; }
+            }
+
             if (!collision) {
                 player.x = nextX;
                 player.y = nextY;
+                isMoving = true;
+            } else {
+                isMoving = false;
             }
+        } else {
+            isMoving = false;
+        }
+
+        if (isMoving) {
+            walkTime += 0.25;
+        } else {
+            walkTime = 0;
         }
     }
 
-    // --- РИСОВАНИЕ ---
     function draw() {
         ctx.fillStyle = '#87CEEB';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -237,17 +263,23 @@
         const centerY = canvas.height / 2;
         const pIso = toIso(player.x, player.y);
 
-        // 1. Рисуем пол (сетку)
+        // Пол (УВЕЛИЧЕНО КОЛИЧЕСТВО ПОЛИГОНОВ: от -25 до 25)
         const pTileX = Math.round(player.x);
         const pTileY = Math.round(player.y);
         
-        for (let dx = -10; dx <= 10; dx++) {
-            for (let dy = -10; dy <= 10; dy++) {
+        for (let dx = -25; dx <= 25; dx++) {
+            for (let dy = -25; dy <= 25; dy++) {
                 const x = pTileX + dx;
                 const y = pTileY + dy;
                 const s = toIso(x, y);
                 const drawX = centerX + s.x - pIso.x;
                 const drawY = centerY + s.y - pIso.y;
+
+                // Оптимизация: не рисуем то, что за экраном
+                if (drawX < -TILE_WIDTH || drawX > canvas.width + TILE_WIDTH || 
+                    drawY < -TILE_HEIGHT || drawY > canvas.height + TILE_HEIGHT) {
+                    continue;
+                }
 
                 ctx.beginPath();
                 ctx.moveTo(drawX, drawY - TILE_HEIGHT/2);
@@ -263,80 +295,121 @@
             }
         }
 
-        // 2. СОРТИРОВКА СЛОЕВ (Z-INDEX)
-        // Собираем всех в один массив
-        const entities = [...trees];
-        entities.push({ x: player.x, y: player.y, type: 'player' });
+        const entities = [...trees, { x: player.x, y: player.y, type: 'player' }];
+        entities.sort((a, b) => toIso(a.x, a.y).y - toIso(b.x, b.y).y);
 
-        // Сортируем по экранной координате Y (кто ниже на экране, тот рисуется позже)
-        entities.sort((a, b) => {
-            const isoA = toIso(a.x, a.y);
-            const isoB = toIso(b.x, b.y);
-            return isoA.y - isoB.y;
-        });
-
-        // 3. РИСУЕМ ОБЪЕКТЫ
         entities.forEach(e => {
             const s = toIso(e.x, e.y);
             const drawX = centerX + s.x - pIso.x;
             const drawY = centerY + s.y - pIso.y;
 
-            if (e.type === 'player') {
-                drawPlayer(drawX, drawY);
-            } else {
-                drawTree(drawX, drawY);
-            }
+            if (e.type === 'player') drawPlayer(drawX, drawY);
+            else drawTree(drawX, drawY);
         });
     }
 
     function drawTree(x, y) {
-        // Тень
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.beginPath();
-        ctx.ellipse(x, y, 20, 10, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Ствол (объемный параллелепипед)
+        ctx.beginPath(); ctx.ellipse(x, y, 20, 10, 0, 0, Math.PI * 2); ctx.fill();
         const w = 20, h = 40;
         ctx.fillStyle = '#8B4513';
         ctx.fillRect(x - w/2, y - h, w, h);
         ctx.strokeStyle = '#000';
         ctx.strokeRect(x - w/2, y - h, w, h);
-        
-        // Блик
         ctx.fillStyle = 'rgba(255,255,255,0.2)';
         ctx.fillRect(x - w/2, y - h, 5, h);
     }
 
     function drawPlayer(x, y) {
-        // Тень
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.beginPath();
-        ctx.ellipse(x, y, 15, 8, 0, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.ellipse(x, y, 15, 8, 0, 0, Math.PI * 2); ctx.fill();
 
-        // Ноги (Синие)
-        ctx.fillStyle = '#3a6ea5';
-        ctx.fillRect(x - 8, y - 10, 7, 15);
-        ctx.fillRect(x + 1, y - 10, 7, 15);
-        ctx.strokeRect(x - 8, y - 10, 7, 15);
-        ctx.strokeRect(x + 1, y - 10, 7, 15);
+        const bobY = isMoving ? Math.abs(Math.sin(walkTime)) * 2 : 0; 
+        const swing = isMoving ? Math.sin(walkTime) * 4 : 0;
 
-        // Торс (Желтый)
-        ctx.fillStyle = '#ffcc00';
-        ctx.fillRect(x - 12, y - 25, 24, 15);
-        ctx.strokeRect(x - 12, y - 25, 24, 15);
+        const skin = '#ffcc00';
+        const shirt = '#ffcc00';
+        const pants = '#3a6ea5';
+        const outline = '#000';
+        ctx.lineWidth = 1;
 
-        // Голова (Желтая)
-        ctx.fillRect(x - 10, y - 45, 20, 20);
-        ctx.strokeRect(x - 10, y - 45, 20, 20);
+        if (player.facing === 'down' || player.facing === 'up') {
+            ctx.fillStyle = shirt;
+            ctx.strokeStyle = outline;
+            ctx.fillRect(x - 17, y - 25 + swing, 5, 15); 
+            ctx.strokeRect(x - 17, y - 25 + swing, 5, 15);
+            ctx.fillRect(x + 12, y - 25 - swing, 5, 15); 
+            ctx.strokeRect(x + 12, y - 25 - swing, 5, 15);
 
-        // Глаза (направление взгляда)
-        ctx.fillStyle = '#000';
-        // Простой поворот глаз в сторону движения (если нужно, можно доработать)
-        ctx.fillRect(x - 6, y - 38, 4, 6);
-        ctx.fillRect(x + 2, y - 38, 4, 6);
+            ctx.fillStyle = pants;
+            ctx.fillRect(x - 8, y - 10 + swing, 7, 15);
+            ctx.strokeRect(x - 8, y - 10 + swing, 7, 15);
+            ctx.fillRect(x + 1, y - 10 - swing, 7, 15);
+            ctx.strokeRect(x + 1, y - 10 - swing, 7, 15);
+
+            ctx.fillStyle = shirt;
+            ctx.fillRect(x - 12, y - 25 - bobY, 24, 15);
+            ctx.strokeRect(x - 12, y - 25 - bobY, 24, 15);
+
+            ctx.fillStyle = skin;
+            ctx.fillRect(x - 10, y - 45 - bobY, 20, 20);
+            ctx.strokeRect(x - 10, y - 45 - bobY, 20, 20);
+
+            if (player.facing === 'down') {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(x - 6, y - 38 - bobY, 4, 6); 
+                ctx.fillRect(x + 2, y - 38 - bobY, 4, 6); 
+            } else {
+                ctx.fillStyle = '#b38f00';
+                ctx.fillRect(x - 9, y - 44 - bobY, 18, 6);
+            }
+
+        } else {
+            ctx.fillStyle = shirt;
+            ctx.strokeStyle = outline;
+            ctx.fillRect(x - 2, y - 25 + swing, 5, 15); 
+            ctx.strokeRect(x - 2, y - 25 + swing, 5, 15);
+
+            ctx.fillStyle = pants;
+            ctx.fillRect(x - 6, y - 10 - swing, 7, 15); 
+            ctx.strokeRect(x - 6, y - 10 - swing, 7, 15);
+            ctx.fillRect(x + 2, y - 10 + swing, 7, 15); 
+            ctx.strokeRect(x + 2, y - 10 + swing, 7, 15);
+
+            ctx.fillStyle = shirt;
+            ctx.fillRect(x - 8, y - 25 - bobY, 16, 15);
+            ctx.strokeRect(x - 8, y - 25 - bobY, 16, 15);
+
+            ctx.fillStyle = skin;
+            ctx.fillRect(x - 8, y - 45 - bobY, 16, 20);
+            ctx.strokeRect(x - 8, y - 45 - bobY, 16, 20);
+
+            ctx.fillStyle = '#000';
+            if (player.facing === 'right') {
+                ctx.fillRect(x + 2, y - 38 - bobY, 4, 6); 
+                ctx.fillRect(x + 8, y - 34 - bobY, 2, 3); 
+            } else {
+                ctx.fillRect(x - 6, y - 38 - bobY, 4, 6); 
+                ctx.fillRect(x - 10, y - 34 - bobY, 2, 3); 
+            }
+        }
     }
+
+    function sendMessage() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (text === '') return;
+        const messagesDiv = document.getElementById('chat-messages');
+        const newMsg = document.createElement('div');
+        newMsg.innerHTML = `<b>[Ты]:</b> ${text}`;
+        messagesDiv.appendChild(newMsg);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        input.value = '';
+    }
+
+    document.getElementById('chat-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') sendMessage();
+    });
 
     function gameLoop() {
         update();
