@@ -6,10 +6,9 @@ import json
 import os
 import sys
 
-# ПУТЬ ДЛЯ СОХРАНЕНИЯ ДАННЫХ (как ты просил)
+# ПУТЬ ДЛЯ СОХРАНЕНИЯ ДАННЫХ
 DATA_DIR = r"C:\Users\user\Desktop\ДАТА\ИГРОКИ"
 
-# Создаем папку, если ее нет
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
@@ -48,7 +47,6 @@ async def server_handler(websocket):
         pass
     finally:
         if client_id in connected_clients:
-            # СОХРАНЯЕМ ДАННЫЕ ИГРОКА НА ПК ПРИ ВЫХОДЕ
             try:
                 save_path = os.path.join(DATA_DIR, f"player_{client_id}.json")
                 with open(save_path, 'w', encoding='utf-8') as f:
@@ -66,27 +64,29 @@ async def server_handler(websocket):
 def start_server():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    
     async def run():
         async with websockets.serve(server_handler, "localhost", 8765):
             await asyncio.Future()
-            
     print("Сервер запущен внутри клиента!")
     loop.run_until_complete(run())
 
-# Запускаем сервер в фоновом потоке (игрок об этом не знает)
+# Запускаем сервер в фоне
 threading.Thread(target=start_server, daemon=True).start()
 
-# Открываем окно клиента (как в Роблоксе)
+# --- НАДЕЖНЫЙ ПОИСК ФАЙЛА ---
 if getattr(sys, 'frozen', False):
-    # Если запущено как .exe
     application_path = sys._MEIPASS
 else:
-    # Если запущено как .py
     application_path = os.path.dirname(os.path.abspath(__file__))
 
 html_file = os.path.join(application_path, 'index.html')
 
-print("Запуск игрового окна...")
+if not os.path.exists(html_file):
+    print(f"ОШИБКА: Файл index.html не найден по пути: {html_file}")
+    print("Убедитесь, что файлы client.py, index.html и game.html лежат в ОДНОЙ папке!")
+    input("Нажмите Enter, чтобы закрыть...")
+    sys.exit()
+
+print(f"Запуск игрового окна: {html_file}")
 webview.create_window('NEXUS Client', html_file, width=1024, height=768)
 webview.start()
