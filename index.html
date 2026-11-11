@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>NEXUS — Старый добрый сайт</title>
+
+<!-- КОД ДЛЯ УСТАНОВКИ КЛИЕНТА (PWA) -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="https://cdn-icons-png.flaticon.com/512/216/216558.png">
+<meta name="theme-color" content="#0d2c54">
+
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; transition: none !important; animation: none !important; font-family: Verdana, Tahoma, Arial, sans-serif; }
   body { margin: 0; padding: 0; background: #3a5a7a; font-size: 11px; color: #222; }
@@ -84,7 +90,6 @@
   <div id="games" class="page">
     <h2 class="page-title">Все игры</h2>
     <div id="gameList">
-      <!-- Игра добавлена сюда -->
       <div class="game-item">
         <div class="game-icon">🌍</div>
         <div class="game-info">
@@ -126,7 +131,6 @@
 
 <!-- Оверлей для полноэкранной игры -->
 <div id="gameOverlay">
-  <button id="closeGameBtn" onclick="closeGame()">✖ ЗАКРЫТЬ ИГРУ</button>
   <iframe id="gameFrame" src=""></iframe>
 </div>
 
@@ -252,7 +256,6 @@
     if (document.getElementById('nav-' + pageId)) document.getElementById('nav-' + pageId).classList.add('active');
   }
 
-  // --- ЗАПУСК ИГРЫ В ОВЕРЛЕЕ ---
   function openGame() {
     if (!currentUser) {
       showAlert("Чтобы играть, нужно войти в аккаунт!");
@@ -263,11 +266,6 @@
     document.getElementById('gameOverlay').style.display = 'flex';
   }
 
-  function closeGame() {
-    document.getElementById('gameOverlay').style.display = 'none';
-    document.getElementById('gameFrame').src = ''; // Останавливаем игру
-  }
-
   function showAlert(text) {
     document.getElementById('alertText').innerText = text;
     document.getElementById('customAlert').style.display = 'block';
@@ -275,6 +273,15 @@
   function closeAlert() { document.getElementById('customAlert').style.display = 'none'; }
 
   init();
+
+  // РЕГИСТРАЦИЯ СЕРВИС-ВОРКЕРА ДЛЯ УСТАНОВКИ НА ПК
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(() => {
+      console.log('Service Worker зарегистрирован!');
+    }).catch((err) => {
+      console.log('Ошибка регистрации Service Worker:', err);
+    });
+  }
 </script>
 </body>
 </html>
