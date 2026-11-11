@@ -20,17 +20,23 @@
         .canvas-wrapper { flex: 1; border: 2px solid #0a1c33; background: #87CEEB; position: relative; overflow: hidden; }
         canvas { display: block; width: 100%; height: 100%; }
         
+        /* Голосовой чат */
+        .voice-btn { background: #555; color: white; border: 1px solid #000; padding: 4px; font-weight: bold; cursor: pointer; margin-bottom: 5px; width: 100%; }
+        .voice-btn.active { background: #4caf50; }
+
         .chat-container { display: flex; flex-direction: column; height: 100%; }
         .chat-messages { flex: 1; overflow-y: auto; padding: 6px; background: #fff; line-height: 1.4; }
         .chat-input-area { display: flex; border-top: 1px solid #0a1c33; background: #eef3f7; flex-shrink: 0; }
         .chat-input-area input { flex: 1; border: none; padding: 6px; outline: none; }
+        .chat-input-area input:disabled { background: #ccc; cursor: not-allowed; }
         .chat-input-area button { background: linear-gradient(#4a7ab0, #2c5686); color: #fff; border: none; padding: 0 12px; cursor: pointer; font-weight: bold; }
+        .chat-input-area button:disabled { background: #888; cursor: not-allowed; }
 
         /* ЭКРАН ЗАГРУЗКИ */
         #loadingScreen {
-            position: absolute; inset: 0; background: rgba(255, 255, 255, 0.9);
+            position: fixed; inset: 0; background: rgba(255, 255, 255, 0.95);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 50; font-size: 16px; font-weight: bold; color: #0a1c33;
+            z-index: 9999; font-size: 16px; font-weight: bold; color: #0a1c33;
         }
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #4a7ab0; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -45,7 +51,6 @@
         .pause-box h2 { margin-top: 0; color: #0a1c33; }
         .pause-box button { width: 100%; padding: 8px; margin-bottom: 10px; font-weight: bold; cursor: pointer; border: 1px solid #000; }
         .btn-resume { background: #4caf50; color: white; }
-        .btn-exit { background: #f44336; color: white; }
         .menu-btn { position: absolute; top: 10px; right: 10px; background: #f44336; color: white; border: 2px solid #fff; border-radius: 4px; padding: 5px 10px; font-weight: bold; cursor: pointer; z-index: 40; }
     </style>
 </head>
@@ -56,7 +61,6 @@
         <div class="user-info">Игрок: Builder2006</div>
     </header>
     <nav>
-        <a href="index.html">← Вернуться на главную</a>
         <a>Игра: Мультиплеер</a>
     </nav>
 
@@ -64,28 +68,22 @@
         <div class="sidebar">
             <h3>Здоровье</h3>
             <div class="sidebar-content" style="color: #cc0000; font-weight: bold;">HP: 100 / 100</div>
-            <h3>Инвентарь</h3>
-            <div class="sidebar-content">Слот 1: Пусто<br>Слот 2: Пусто<br>Слот 3: Пусто<br>Слот 4: Пусто<br>Слот 5: Пусто</div>
+            <h3>Голосовой чат</h3>
+            <div class="sidebar-content">
+                <button id="voiceBtn" class="voice-btn" onclick="toggleVoice()">🎤 Включить микрофон</button>
+            </div>
         </div>
 
         <div class="canvas-wrapper">
             <canvas id="gameCanvas"></canvas>
             
-            <!-- Кнопка меню -->
             <button class="menu-btn" onclick="togglePause()">⏸ МЕНЮ</button>
-
-            <!-- Экран загрузки -->
-            <div id="loadingScreen">
-                <div class="spinner"></div>
-                Подключение к серверу...
-            </div>
 
             <!-- Меню паузы -->
             <div id="pauseMenu">
                 <div class="pause-box">
                     <h2>Пауза</h2>
                     <button class="btn-resume" onclick="togglePause()">Продолжить</button>
-                    <button class="btn-exit" onclick="exitGame()">Выйти из игры</button>
                 </div>
             </div>
         </div>
@@ -97,11 +95,17 @@
                     <div>[Система]: Ожидание...</div>
                 </div>
                 <div class="chat-input-area">
-                    <input type="text" id="chat-input" placeholder="Введите текст..." maxlength="50">
-                    <button onclick="sendMessage()">Отпр</button>
+                    <input type="text" id="chat-input" placeholder="Введите текст..." maxlength="50" disabled>
+                    <button id="chat-send-btn" onclick="sendMessage()" disabled>Отпр</button>
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- ЭКРАН ЗАГРУЗКИ -->
+    <div id="loadingScreen">
+        <div class="spinner"></div>
+        Подключение к серверу...
     </div>
 
 <script>
@@ -110,6 +114,8 @@
     const wrapper = document.querySelector('.canvas-wrapper');
     const loadingScreen = document.getElementById('loadingScreen');
     const pauseMenu = document.getElementById('pauseMenu');
+    const chatInput = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send-btn');
 
     let isPaused = false;
     let isGameReady = false;
@@ -128,8 +134,6 @@
     let isMoving = false;
     let otherPlayers = {};
     let globalTick = 0;
-
-    // Для оптимизации сети (отправляем только если изменилось)
     let lastSentX = 0, lastSentY = 0, lastSentFacing = 'down';
 
     const trees = [
@@ -139,7 +143,7 @@
     const keys = {};
     window.addEventListener('keydown', (e) => {
         if (e.code === 'Escape') { togglePause(); return; }
-        if (e.target.tagName === 'INPUT') return;
+        if (e.target.tagName === 'INPUT' || !isGameReady) return; // Блокировка если не загрузилось
         keys[e.code] = true; 
         if(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
@@ -169,18 +173,20 @@
 
     ws.onclose = () => {
         addChatMessage('[Система]: Сервер выключен.');
-        loadingScreen.style.display = 'flex';
         loadingScreen.innerHTML = 'Сервер недоступен.';
+        loadingScreen.style.display = 'flex';
+        isGameReady = false;
     };
     
     ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         
         if (msg.type === 'init') {
-            // Загружаем всех, кто уже был на сервере
             otherPlayers = msg.players || {};
-            loadingScreen.style.display = 'none';
+            loadingScreen.style.display = 'none'; // Скрываем экран загрузки
             isGameReady = true;
+            chatInput.disabled = false;
+            chatSendBtn.disabled = false;
             addChatMessage('[Система]: Вы в игре!');
         } 
         else if (msg.type === 'update') {
@@ -189,13 +195,20 @@
         else if (msg.type === 'disconnect') {
             delete otherPlayers[msg.id];
         }
+        // Обработка сигналов голосового чата
+        else if (msg.type === 'voice-offer') {
+            handleVoiceOffer(msg.id, msg.offer);
+        }
+        else if (msg.type === 'voice-answer') {
+            handleVoiceAnswer(msg.id, msg.answer);
+        }
+        else if (msg.type === 'voice-ice') {
+            handleVoiceIce(msg.id, msg.candidate);
+        }
     };
 
-    // Отправка данных (оптимизировано)
     setInterval(() => {
         if (!isGameReady || isPaused || ws.readyState !== WebSocket.OPEN) return;
-        
-        // Если игрок сдвинулся или повернулся
         if (Math.abs(player.x - lastSentX) > 0.01 || Math.abs(player.y - lastSentY) > 0.01 || player.facing !== lastSentFacing) {
             ws.send(JSON.stringify({ x: player.x, y: player.y, facing: player.facing, moving: isMoving }));
             lastSentX = player.x;
@@ -203,6 +216,115 @@
             lastSentFacing = player.facing;
         }
     }, 50);
+
+    // ==========================================
+    // ГОЛОСОВОЙ ЧАТ (WebRTC)
+    // ==========================================
+    let localStream = null;
+    let isVoiceActive = false;
+    const peerConnections = {};
+    const audioElements = {};
+    const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+    async function toggleVoice() {
+        const btn = document.getElementById('voiceBtn');
+        if (!isVoiceActive) {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                isVoiceActive = true;
+                btn.textContent = '🔴 Выключить микрофон';
+                btn.classList.add('active');
+                
+                // Создаем соединения с теми, кто уже в игре
+                for (let id in otherPlayers) {
+                    createPeerConnection(id, true);
+                }
+            } catch (err) {
+                alert('Не удалось получить доступ к микрофону: ' + err.message);
+            }
+        } else {
+            isVoiceActive = false;
+            btn.textContent = '🎤 Включить микрофон';
+            btn.classList.remove('active');
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+                localStream = null;
+            }
+            for (let id in peerConnections) {
+                peerConnections[id].close();
+                delete peerConnections[id];
+            }
+            for (let id in audioElements) {
+                audioElements[id].remove();
+                delete audioElements[id];
+            }
+        }
+    }
+
+    function createPeerConnection(targetId, isInitiator) {
+        if (peerConnections[targetId]) return peerConnections[targetId];
+        
+        const pc = new RTCPeerConnection(rtcConfig);
+        peerConnections[targetId] = pc;
+
+        if (localStream) {
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        }
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'voice-ice', target: targetId, candidate: event.candidate }));
+            }
+        };
+
+        pc.ontrack = (event) => {
+            if (!audioElements[targetId]) {
+                const audio = document.createElement('audio');
+                audio.autoplay = true;
+                document.body.appendChild(audio);
+                audioElements[targetId] = audio;
+            }
+            audioElements[targetId].srcObject = event.streams[0];
+        };
+
+        if (isInitiator) {
+            pc.createOffer().then(offer => {
+                pc.setLocalDescription(offer);
+                ws.send(JSON.stringify({ type: 'voice-offer', target: targetId, offer: offer }));
+            });
+        }
+        return pc;
+    }
+
+    async function handleVoiceOffer(senderId, offer) {
+        if (!isVoiceActive) return; // Если микрофон выключен, игнорируем
+        const pc = createPeerConnection(senderId, false);
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        ws.send(JSON.stringify({ type: 'voice-answer', target: senderId, answer: answer }));
+    }
+
+    async function handleVoiceAnswer(senderId, answer) {
+        const pc = peerConnections[senderId];
+        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    }
+
+    async function handleVoiceIce(senderId, candidate) {
+        const pc = peerConnections[senderId];
+        if (pc && candidate) {
+            try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(e) {}
+        }
+    }
+
+    // При подключении нового игрока, если микрофон включен, инициируем звонок
+    function onNewPlayerConnected(id) {
+        if (isVoiceActive) {
+            createPeerConnection(id, true);
+        }
+    }
+
+    // ==========================================
 
     function update() {
         if (!isGameReady || isPaused) return;
@@ -243,7 +365,6 @@
 
     function draw() {
         globalTick += 0.2;
-
         ctx.fillStyle = '#87CEEB';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -293,15 +414,12 @@
 
     function drawCharacter(x, y, charData, isMe) {
         ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(x, y, 15, 8, 0, 0, Math.PI * 2); ctx.fill();
-
         const skin = isMe ? '#ffcc00' : '#3498db'; 
         const shirt = isMe ? '#ffcc00' : '#3498db';
         const pants = isMe ? '#3a6ea5' : '#2c3e50';
         const outline = '#000';
-
         const bobY = charData.moving ? Math.abs(Math.sin(globalTick)) * 2 : 0;
         const swing = charData.moving ? Math.sin(globalTick) * 4 : 0;
-
         ctx.lineWidth = 1;
 
         if (charData.facing === 'down' || charData.facing === 'up') {
@@ -332,15 +450,10 @@
         }
     }
 
-    // --- МЕНЮ И ЛОГИКА ---
     function togglePause() {
         if (!isGameReady) return;
         isPaused = !isPaused;
         pauseMenu.style.display = isPaused ? 'flex' : 'none';
-    }
-
-    function exitGame() {
-        window.location.href = 'index.html'; // Возврат на главную
     }
 
     function addChatMessage(text) {
@@ -348,18 +461,14 @@
         chatMessages.appendChild(div); chatMessages.scrollTop = chatMessages.scrollHeight;
     }
     function sendMessage() {
-        const input = document.getElementById('chat-input');
-        if (input.value.trim() === '') return;
-        addChatMessage(`<b>[Ты]:</b> ${input.value}`);
-        input.value = '';
+        if (!isGameReady || chatInput.value.trim() === '') return;
+        addChatMessage(`<b>[Ты]:</b> ${chatInput.value}`);
+        chatInput.value = '';
     }
     document.getElementById('chat-input').addEventListener('keypress', function(e) { if (e.key === 'Enter') sendMessage(); });
 
     function gameLoop() { 
-        if (!isPaused) {
-            update(); 
-            draw(); 
-        }
+        if (!isPaused) { update(); draw(); }
         requestAnimationFrame(gameLoop); 
     }
     gameLoop();
