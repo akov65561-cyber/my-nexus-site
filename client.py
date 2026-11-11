@@ -79,14 +79,15 @@ if getattr(sys, 'frozen', False):
 else:
     application_path = os.path.dirname(os.path.abspath(__file__))
 
-html_file = os.path.join(application_path, 'index.html')
+# ВНИМАНИЕ: ТЕПЕРЬ МЫ ЗАГРУЖАЕМ ИГРУ, А НЕ САЙТ!
+game_file = os.path.join(application_path, 'game.html')
 
-if not os.path.exists(html_file):
-    print(f"ОШИБКА: Файл index.html не найден по пути: {html_file}")
-    print("Убедитесь, что файлы client.py, index.html и game.html лежат в ОДНОЙ папке!")
+if not os.path.exists(game_file):
+    print(f"ОШИБКА: Файл game.html не найден по пути: {game_file}")
+    print("Убедитесь, что файлы client.py и game.html лежат в ОДНОЙ папке!")
     input("Нажмите Enter, чтобы закрыть...")
     sys.exit()
 
-print(f"Запуск игрового окна: {html_file}")
-webview.create_window('NEXUS Client', html_file, width=1024, height=768)
+print(f"Запуск игрового окна: {game_file}")
+webview.create_window('NEXUS Game Client', game_file, width=1024, height=768)
 webview.start()
