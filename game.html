@@ -10,8 +10,6 @@
         header { background: linear-gradient(#0d2c54, #1a4f8a 50%, #0d2c54); border-bottom: 2px solid #000; color: #fff; padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; height: 40px; }
         .logo { font-family: "Arial Black", Impact, sans-serif; font-size: 18px; letter-spacing: 2px; text-shadow: 2px 2px 0 #000; }
         .logo span { color: #ffcc00; }
-        nav { background: linear-gradient(#4a7ab0, #2c5686); border-bottom: 2px solid #0a1c33; padding: 4px 12px; color: #fff; display: flex; gap: 15px; }
-        nav a { color: #fff; text-decoration: none; font-weight: bold; cursor: pointer; }
         
         .game-container { display: flex; height: calc(100vh - 65px); padding: 10px; gap: 10px; background: #d8e0e8; }
         .sidebar { width: 200px; background: #fff; border: 2px solid #0a1c33; display: flex; flex-direction: column; }
@@ -37,6 +35,7 @@
             position: fixed; inset: 0; background: rgba(255, 255, 255, 0.95);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             z-index: 9999; font-size: 16px; font-weight: bold; color: #0a1c33;
+            pointer-events: auto; /* Блокирует клики */
         }
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #4a7ab0; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -49,8 +48,10 @@
         }
         .pause-box { background: #fff; border: 2px solid #0a1c33; padding: 20px; text-align: center; width: 250px; }
         .pause-box h2 { margin-top: 0; color: #0a1c33; }
-        .pause-box button { width: 100%; padding: 8px; margin-bottom: 10px; font-weight: bold; cursor: pointer; border: 1px solid #000; }
+        .pause-box button { width: 100%; padding: 8px; margin-bottom: 10px; font-weight: bold; cursor: pointer; border: 1px solid #000; font-family: Verdana, sans-serif; font-size: 12px; }
         .btn-resume { background: #4caf50; color: white; }
+        .btn-exit { background: #f44336; color: white; }
+        
         .menu-btn { position: absolute; top: 10px; right: 10px; background: #f44336; color: white; border: 2px solid #fff; border-radius: 4px; padding: 5px 10px; font-weight: bold; cursor: pointer; z-index: 40; }
     </style>
 </head>
@@ -60,9 +61,6 @@
         <div class="logo">NEXUS<span>.</span></div>
         <div class="user-info">Игрок: Builder2006</div>
     </header>
-    <nav>
-        <a>Игра: Мультиплеер</a>
-    </nav>
 
     <div class="game-container">
         <div class="sidebar">
@@ -84,6 +82,7 @@
                 <div class="pause-box">
                     <h2>Пауза</h2>
                     <button class="btn-resume" onclick="togglePause()">Продолжить</button>
+                    <button class="btn-exit" onclick="exitGame()">Выйти из игры</button>
                 </div>
             </div>
         </div>
@@ -102,7 +101,6 @@
         </div>
     </div>
 
-    <!-- ЭКРАН ЗАГРУЗКИ -->
     <div id="loadingScreen">
         <div class="spinner"></div>
         Подключение к серверу...
@@ -143,7 +141,7 @@
     const keys = {};
     window.addEventListener('keydown', (e) => {
         if (e.code === 'Escape') { togglePause(); return; }
-        if (e.target.tagName === 'INPUT' || !isGameReady) return; // Блокировка если не загрузилось
+        if (e.target.tagName === 'INPUT' || !isGameReady) return; 
         keys[e.code] = true; 
         if(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
@@ -183,7 +181,7 @@
         
         if (msg.type === 'init') {
             otherPlayers = msg.players || {};
-            loadingScreen.style.display = 'none'; // Скрываем экран загрузки
+            loadingScreen.style.display = 'none'; 
             isGameReady = true;
             chatInput.disabled = false;
             chatSendBtn.disabled = false;
@@ -195,7 +193,6 @@
         else if (msg.type === 'disconnect') {
             delete otherPlayers[msg.id];
         }
-        // Обработка сигналов голосового чата
         else if (msg.type === 'voice-offer') {
             handleVoiceOffer(msg.id, msg.offer);
         }
@@ -235,7 +232,6 @@
                 btn.textContent = '🔴 Выключить микрофон';
                 btn.classList.add('active');
                 
-                // Создаем соединения с теми, кто уже в игре
                 for (let id in otherPlayers) {
                     createPeerConnection(id, true);
                 }
@@ -297,7 +293,7 @@
     }
 
     async function handleVoiceOffer(senderId, offer) {
-        if (!isVoiceActive) return; // Если микрофон выключен, игнорируем
+        if (!isVoiceActive) return;
         const pc = createPeerConnection(senderId, false);
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
@@ -314,13 +310,6 @@
         const pc = peerConnections[senderId];
         if (pc && candidate) {
             try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(e) {}
-        }
-    }
-
-    // При подключении нового игрока, если микрофон включен, инициируем звонок
-    function onNewPlayerConnected(id) {
-        if (isVoiceActive) {
-            createPeerConnection(id, true);
         }
     }
 
@@ -454,6 +443,10 @@
         if (!isGameReady) return;
         isPaused = !isPaused;
         pauseMenu.style.display = isPaused ? 'flex' : 'none';
+    }
+
+    function exitGame() {
+        window.location.href = 'index.html';
     }
 
     function addChatMessage(text) {
