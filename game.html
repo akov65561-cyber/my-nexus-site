@@ -6,114 +6,117 @@
     <title>NEXUS — Игра</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #3a5a7a; font-family: Verdana, Tahoma, Arial, sans-serif; font-size: 11px; color: #222; overflow: hidden; }
-        header { background: linear-gradient(#0d2c54, #1a4f8a 50%, #0d2c54); border-bottom: 2px solid #000; color: #fff; padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; height: 40px; }
-        .logo { font-family: "Arial Black", Impact, sans-serif; font-size: 18px; letter-spacing: 2px; text-shadow: 2px 2px 0 #000; }
-        .logo span { color: #ffcc00; }
+        body { background: #111; font-family: Verdana, Tahoma, Arial, sans-serif; font-size: 11px; color: #222; overflow: hidden; }
         
-        .game-container { display: flex; height: calc(100vh - 65px); padding: 10px; gap: 10px; background: #d8e0e8; }
-        .sidebar { width: 200px; background: #fff; border: 2px solid #0a1c33; display: flex; flex-direction: column; }
+        #loadingScreen {
+            position: fixed; inset: 0; background: #000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 9999; font-size: 16px; font-weight: bold; color: #fff;
+        }
+        .loading-img {
+            width: 200px; height: 200px; background: #333; border: 2px solid #555;
+            display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
+            color: #666; font-size: 12px; border-radius: 10px;
+        }
+        .loading-text { font-size: 24px; margin-bottom: 20px; }
+        .spinner { display: flex; gap: 8px; }
+        .spinner div {
+            width: 10px; height: 10px; background: #fff; border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .spinner div:nth-child(1) { animation-delay: -0.32s; }
+        .spinner div:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        .game-container { display: none; height: 100vh; padding: 10px; gap: 10px; background: #3a5a7a; }
+        .sidebar { width: 210px; background: #fff; border: 2px solid #0a1c33; display: flex; flex-direction: column; flex-shrink: 0; }
         .sidebar h3 { background: linear-gradient(#4a7ab0, #2c5686); color: #fff; padding: 4px; font-size: 11px; border-bottom: 1px solid #0a1c33; text-align: center; flex-shrink: 0; }
         .sidebar-content { padding: 8px; line-height: 1.6; }
-        .canvas-wrapper { flex: 1; border: 2px solid #0a1c33; background: #87CEEB; position: relative; overflow: hidden; }
+        
+        .canvas-wrapper { flex: 1; border: 2px solid #0a1c33; background: #87CEEB; position: relative; overflow: hidden; min-width: 0; }
         canvas { display: block; width: 100%; height: 100%; }
         
-        /* Голосовой чат */
-        .voice-btn { background: #555; color: white; border: 1px solid #000; padding: 4px; font-weight: bold; cursor: pointer; margin-bottom: 5px; width: 100%; }
+        .chat-container { display: flex; flex-direction: column; height: 100%; overflow: hidden; position: relative; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 6px; background: #fff; line-height: 1.4; word-wrap: break-word; margin-bottom: 40px; }
+        
+        .chat-bottom-bar { display: flex; background: #eef3f7; border-top: 1px solid #0a1c33; height: 40px; align-items: center; padding: 0 5px; gap: 5px; position: absolute; bottom: 0; width: 100%; }
+        .chat-input { flex: 1; min-width: 0; border: 1px solid #88a0b8; padding: 6px; outline: none; font-family: Verdana; font-size: 11px; }
+        .chat-btn { background: #4a7ab0; color: #fff; border: 1px solid #0a1c33; width: 30px; height: 28px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .chat-btn:hover { background: #2c5686; }
         .voice-btn.active { background: #4caf50; }
 
-        .chat-container { display: flex; flex-direction: column; height: 100%; }
-        .chat-messages { flex: 1; overflow-y: auto; padding: 6px; background: #fff; line-height: 1.4; }
-        .chat-input-area { display: flex; border-top: 1px solid #0a1c33; background: #eef3f7; flex-shrink: 0; }
-        .chat-input-area input { flex: 1; border: none; padding: 6px; outline: none; }
-        .chat-input-area input:disabled { background: #ccc; cursor: not-allowed; }
-        .chat-input-area button { background: linear-gradient(#4a7ab0, #2c5686); color: #fff; border: none; padding: 0 12px; cursor: pointer; font-weight: bold; }
-        .chat-input-area button:disabled { background: #888; cursor: not-allowed; }
+        .menu-btn { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.8); border: 2px solid #000; border-radius: 4px; padding: 5px 15px; font-weight: bold; cursor: pointer; z-index: 40; font-size: 16px; }
 
-        /* ЭКРАН ЗАГРУЗКИ */
-        #loadingScreen {
-            position: fixed; inset: 0; background: rgba(255, 255, 255, 0.95);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 9999; font-size: 16px; font-weight: bold; color: #0a1c33;
-            pointer-events: auto; /* Блокирует клики */
-        }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #4a7ab0; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* МЕНЮ ПАУЗЫ */
-        #pauseMenu {
-            position: absolute; inset: 0; background: rgba(10, 28, 51, 0.8);
-            display: none; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 60;
-        }
-        .pause-box { background: #fff; border: 2px solid #0a1c33; padding: 20px; text-align: center; width: 250px; }
-        .pause-box h2 { margin-top: 0; color: #0a1c33; }
-        .pause-box button { width: 100%; padding: 8px; margin-bottom: 10px; font-weight: bold; cursor: pointer; border: 1px solid #000; font-family: Verdana, sans-serif; font-size: 12px; }
-        .btn-resume { background: #4caf50; color: white; }
-        .btn-exit { background: #f44336; color: white; }
-        
-        .menu-btn { position: absolute; top: 10px; right: 10px; background: #f44336; color: white; border: 2px solid #fff; border-radius: 4px; padding: 5px 10px; font-weight: bold; cursor: pointer; z-index: 40; }
+        #pauseMenu { position: fixed; inset: 0; background: rgba(128, 128, 128, 0.9); display: none; flex-direction: column; z-index: 9998; }
+        .close-btn { position: absolute; top: 20px; left: 20px; color: #ff0000; font-size: 40px; font-weight: bold; cursor: pointer; background: none; border: none; line-height: 1; }
+        .exit-btn { position: absolute; top: 100px; left: 20px; background: #ff0000; color: #800000; border: 2px solid #800000; padding: 10px 40px; font-size: 24px; font-weight: bold; cursor: pointer; font-family: "Comic Sans MS", cursive, sans-serif; }
+        .exit-btn:hover { background: #ff3333; }
     </style>
 </head>
 <body>
 
-    <header>
-        <div class="logo">NEXUS<span>.</span></div>
-        <div class="user-info">Игрок: Builder2006</div>
-    </header>
+    <div id="loadingScreen">
+        <div class="loading-img">Картинка игры (Тут)</div>
+        <div class="loading-text">Загрузка</div>
+        <div class="spinner">
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+        </div>
+    </div>
 
-    <div class="game-container">
+    <div id="pauseMenu">
+        <button class="close-btn" onclick="togglePause()">✖</button>
+        <button class="exit-btn" onclick="exitGame()">Выход 🚪</button>
+    </div>
+
+    <div class="game-container" id="gameContainer">
         <div class="sidebar">
-            <h3>Здоровье</h3>
-            <div class="sidebar-content" style="color: #cc0000; font-weight: bold;">HP: 100 / 100</div>
-            <h3>Голосовой чат</h3>
-            <div class="sidebar-content">
-                <button id="voiceBtn" class="voice-btn" onclick="toggleVoice()">🎤 Включить микрофон</button>
-            </div>
+            <h3>Игрок</h3>
+            <div class="sidebar-content" id="playerNameDisplay">Загрузка...</div>
+            <h3>HP: 100</h3>
+            <h3>Инвентарь</h3>
+            <div class="sidebar-content">Слот 1: Пусто<br>Слот 2: Пусто<br>Слот 3: Пусто</div>
         </div>
 
         <div class="canvas-wrapper">
             <canvas id="gameCanvas"></canvas>
-            
-            <button class="menu-btn" onclick="togglePause()">⏸ МЕНЮ</button>
-
-            <!-- Меню паузы -->
-            <div id="pauseMenu">
-                <div class="pause-box">
-                    <h2>Пауза</h2>
-                    <button class="btn-resume" onclick="togglePause()">Продолжить</button>
-                    <button class="btn-exit" onclick="exitGame()">Выйти из игры</button>
-                </div>
-            </div>
+            <button class="menu-btn" onclick="togglePause()">🏠 Меню</button>
         </div>
 
         <div class="sidebar">
             <h3>Чат</h3>
             <div class="chat-container">
-                <div class="chat-messages" id="chat-messages">
-                    <div>[Система]: Ожидание...</div>
-                </div>
-                <div class="chat-input-area">
-                    <input type="text" id="chat-input" placeholder="Введите текст..." maxlength="50" disabled>
-                    <button id="chat-send-btn" onclick="sendMessage()" disabled>Отпр</button>
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="chat-bottom-bar">
+                    <button class="chat-btn" title="Прикрепить" onclick="alert('Скоро!')">🖼️</button>
+                    <input type="text" id="chatInput" class="chat-input" placeholder="Текст..." maxlength="50">
+                    <button class="chat-btn voice-btn" id="voiceBtn" onclick="toggleVoice()">🎤</button>
+                    <button class="chat-btn" style="background:#4caf50;" onclick="sendMessage()">➤</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="loadingScreen">
-        <div class="spinner"></div>
-        Подключение к серверу...
-    </div>
-
 <script>
+    // ТВОЙ FIREBASE URL
+    const FB_URL = "https://pleqm-29339-default-rtdb.firebaseio.com";
+    let myUsername = "Guest"; 
+    let playerId = "Guest_" + Math.floor(Math.random() * 10000); // Уникальный ID для сессии
+
+    // Получаем ник из локального хранилища (его сохранил сайт index.html при входе)
+    const savedUser = localStorage.getItem('nexus_user');
+    if (savedUser) {
+        myUsername = JSON.parse(savedUser).username;
+        playerId = myUsername; // В мультиплеере используем ник как ID
+    }
+
+    // --- ИГРОВАЯ ЛОГИКА ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const wrapper = document.querySelector('.canvas-wrapper');
     const loadingScreen = document.getElementById('loadingScreen');
+    const gameContainer = document.getElementById('gameContainer');
     const pauseMenu = document.getElementById('pauseMenu');
-    const chatInput = document.getElementById('chat-input');
-    const chatSendBtn = document.getElementById('chat-send-btn');
+    const chatInput = document.getElementById('chatInput');
 
     let isPaused = false;
     let isGameReady = false;
@@ -123,25 +126,28 @@
         canvas.height = wrapper.clientHeight;
     }
     window.addEventListener('resize', resize);
-    resize();
+
+    // Запуск игры после загрузки
+    setTimeout(() => {
+        loadingScreen.style.display = 'none';
+        gameContainer.style.display = 'flex';
+        document.getElementById('playerNameDisplay').innerText = myUsername;
+        resize();
+        isGameReady = true;
+        startGame();
+    }, 2000);
 
     const TILE_WIDTH = 64;
     const TILE_HEIGHT = 32;
-
     const player = { x: 0, y: 0, speed: 0.08, facing: 'down' };
     let isMoving = false;
     let otherPlayers = {};
     let globalTick = 0;
-    let lastSentX = 0, lastSentY = 0, lastSentFacing = 'down';
-
-    const trees = [
-        { x: 2, y: 1 }, { x: -2, y: -1 }, { x: 3, y: -2 }, { x: -1, y: 2 }, { x: 1, y: 3 }
-    ];
-
     const keys = {};
+
     window.addEventListener('keydown', (e) => {
         if (e.code === 'Escape') { togglePause(); return; }
-        if (e.target.tagName === 'INPUT' || !isGameReady) return; 
+        if (e.target.tagName === 'INPUT' || !isGameReady || isPaused) return; 
         keys[e.code] = true; 
         if(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     });
@@ -150,8 +156,7 @@
         keys[e.code] = false;
     });
 
-    let cameraStep = 0; 
-    let cameraAngle = 0;
+    let cameraStep = 0; let cameraAngle = 0;
 
     function toIso(x, y) {
         const cos = Math.cos(cameraAngle);
@@ -161,163 +166,90 @@
         return { x: (rotX - rotY) * (TILE_WIDTH / 2), y: (rotX + rotY) * (TILE_HEIGHT / 2) };
     }
 
-    // --- СЕТЬ ---
-    const ws = new WebSocket('ws://localhost:8765');
-    const chatMessages = document.getElementById('chat-messages');
+    const trees = [{ x: 2, y: 1 }, { x: -2, y: -1 }, { x: 3, y: -2 }, { x: -1, y: 2 }, { x: 1, y: 3 }];
 
-    ws.onopen = () => {
-        addChatMessage('[Система]: Соединение установлено. Синхронизация...');
-    };
-
-    ws.onclose = () => {
-        addChatMessage('[Система]: Сервер выключен.');
-        loadingScreen.innerHTML = 'Сервер недоступен.';
-        loadingScreen.style.display = 'flex';
-        isGameReady = false;
-    };
+    // --- FIREBASE МУЛЬТИПЛЕЕР (Отправка и получение координат) ---
     
-    ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        
-        if (msg.type === 'init') {
-            otherPlayers = msg.players || {};
-            loadingScreen.style.display = 'none'; 
-            isGameReady = true;
-            chatInput.disabled = false;
-            chatSendBtn.disabled = false;
-            addChatMessage('[Система]: Вы в игре!');
-        } 
-        else if (msg.type === 'update') {
-            otherPlayers[msg.id] = msg.data;
-        } 
-        else if (msg.type === 'disconnect') {
-            delete otherPlayers[msg.id];
-        }
-        else if (msg.type === 'voice-offer') {
-            handleVoiceOffer(msg.id, msg.offer);
-        }
-        else if (msg.type === 'voice-answer') {
-            handleVoiceAnswer(msg.id, msg.answer);
-        }
-        else if (msg.type === 'voice-ice') {
-            handleVoiceIce(msg.id, msg.candidate);
-        }
-    };
-
+    // Отправляем свои координаты каждые 200мс (Firebase не любит слишком частые запросы)
     setInterval(() => {
-        if (!isGameReady || isPaused || ws.readyState !== WebSocket.OPEN) return;
-        if (Math.abs(player.x - lastSentX) > 0.01 || Math.abs(player.y - lastSentY) > 0.01 || player.facing !== lastSentFacing) {
-            ws.send(JSON.stringify({ x: player.x, y: player.y, facing: player.facing, moving: isMoving }));
-            lastSentX = player.x;
-            lastSentY = player.y;
-            lastSentFacing = player.facing;
-        }
-    }, 50);
+        if (!isGameReady || isPaused) return;
+        fetch(`${FB_URL}/players/${playerId}.json`, {
+            method: 'PUT',
+            body: JSON.stringify({ 
+                x: player.x, 
+                y: player.y, 
+                facing: player.facing, 
+                moving: isMoving,
+                time: Date.now()
+            })
+        });
+    }, 200);
 
-    // ==========================================
-    // ГОЛОСОВОЙ ЧАТ (WebRTC)
-    // ==========================================
-    let localStream = null;
-    let isVoiceActive = false;
-    const peerConnections = {};
-    const audioElements = {};
-    const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-
-    async function toggleVoice() {
-        const btn = document.getElementById('voiceBtn');
-        if (!isVoiceActive) {
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                isVoiceActive = true;
-                btn.textContent = '🔴 Выключить микрофон';
-                btn.classList.add('active');
-                
-                for (let id in otherPlayers) {
-                    createPeerConnection(id, true);
+    // Читаем координаты других игроков каждые 200мс
+    setInterval(() => {
+        if (!isGameReady) return;
+        fetch(`${FB_URL}/players.json`)
+            .then(res => res.json())
+            .then(data => {
+                otherPlayers = {};
+                if (data) {
+                    for (let id in data) {
+                        if (id === playerId) continue;
+                        // Если игрок обновлялся менее 5 секунд назад, рисуем его
+                        if (Date.now() - data[id].time < 5000) {
+                            otherPlayers[id] = data[id];
+                        }
+                    }
                 }
-            } catch (err) {
-                alert('Не удалось получить доступ к микрофону: ' + err.message);
-            }
-        } else {
-            isVoiceActive = false;
-            btn.textContent = '🎤 Включить микрофон';
-            btn.classList.remove('active');
-            if (localStream) {
-                localStream.getTracks().forEach(t => t.stop());
-                localStream = null;
-            }
-            for (let id in peerConnections) {
-                peerConnections[id].close();
-                delete peerConnections[id];
-            }
-            for (let id in audioElements) {
-                audioElements[id].remove();
-                delete audioElements[id];
-            }
-        }
-    }
-
-    function createPeerConnection(targetId, isInitiator) {
-        if (peerConnections[targetId]) return peerConnections[targetId];
-        
-        const pc = new RTCPeerConnection(rtcConfig);
-        peerConnections[targetId] = pc;
-
-        if (localStream) {
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-        }
-
-        pc.onicecandidate = (event) => {
-            if (event.candidate && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'voice-ice', target: targetId, candidate: event.candidate }));
-            }
-        };
-
-        pc.ontrack = (event) => {
-            if (!audioElements[targetId]) {
-                const audio = document.createElement('audio');
-                audio.autoplay = true;
-                document.body.appendChild(audio);
-                audioElements[targetId] = audio;
-            }
-            audioElements[targetId].srcObject = event.streams[0];
-        };
-
-        if (isInitiator) {
-            pc.createOffer().then(offer => {
-                pc.setLocalDescription(offer);
-                ws.send(JSON.stringify({ type: 'voice-offer', target: targetId, offer: offer }));
             });
-        }
-        return pc;
-    }
+    }, 200);
 
-    async function handleVoiceOffer(senderId, offer) {
-        if (!isVoiceActive) return;
-        const pc = createPeerConnection(senderId, false);
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        ws.send(JSON.stringify({ type: 'voice-answer', target: senderId, answer: answer }));
-    }
+    // --- ЧАТ В FIREBASE ---
+    const chatMessages = document.getElementById('chat-messages');
+    let lastMessageCount = 0;
 
-    async function handleVoiceAnswer(senderId, answer) {
-        const pc = peerConnections[senderId];
-        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    function loadChat() {
+        fetch(`${FB_URL}/chat.json`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data) return;
+                // Сортируем сообщения по времени
+                const messages = Object.values(data).sort((a, b) => a.time - b.time);
+                
+                if (messages.length > lastMessageCount) {
+                    chatMessages.innerHTML = '';
+                    messages.forEach(msg => {
+                        const div = document.createElement('div');
+                        div.innerHTML = `<b>[${msg.author}]:</b> ${msg.text}`;
+                        chatMessages.appendChild(div);
+                    });
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                    lastMessageCount = messages.length;
+                }
+            });
     }
+    setInterval(loadChat, 1500); // Проверяем новые сообщения каждые 1.5 секунды
 
-    async function handleVoiceIce(senderId, candidate) {
-        const pc = peerConnections[senderId];
-        if (pc && candidate) {
-            try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(e) {}
-        }
+    function sendMessage() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+        
+        const newMsg = { author: myUsername, text: text, time: Date.now() };
+        fetch(`${FB_URL}/chat.json`, {
+            method: 'POST',
+            body: JSON.stringify(newMsg)
+        }).then(() => {
+            chatInput.value = '';
+            loadChat();
+        });
     }
+    chatInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') sendMessage(); });
 
-    // ==========================================
+    // --- ИГРОВОЙ ЦИКЛ ---
+    function startGame() { requestAnimationFrame(gameLoop); }
 
     function update() {
         if (!isGameReady || isPaused) return;
-
         if (keys['ArrowLeft']) { cameraStep = (cameraStep + 3) % 4; cameraAngle = cameraStep * (Math.PI / 2); keys['ArrowLeft'] = false; }
         if (keys['ArrowRight']) { cameraStep = (cameraStep + 1) % 4; cameraAngle = cameraStep * (Math.PI / 2); keys['ArrowRight'] = false; }
 
@@ -329,26 +261,15 @@
 
         if (scrDx !== 0 || scrDy !== 0) {
             player.facing = Math.abs(scrDy) > Math.abs(scrDx) ? (scrDy < 0 ? 'up' : 'down') : (scrDx < 0 ? 'left' : 'right');
-            
-            let baseX = scrDx + scrDy;
-            let baseY = -scrDx + scrDy;
-            let cos = Math.cos(cameraAngle);
-            let sin = Math.sin(cameraAngle);
-            let worldDx = baseX * cos + baseY * sin;
-            let worldDy = -baseX * sin + baseY * cos;
-
+            let baseX = scrDx + scrDy; let baseY = -scrDx + scrDy;
+            let cos = Math.cos(cameraAngle); let sin = Math.sin(cameraAngle);
+            let worldDx = baseX * cos + baseY * sin; let worldDy = -baseX * sin + baseY * cos;
             const len = Math.hypot(worldDx, worldDy);
-            const moveX = (worldDx / len) * player.speed;
-            const moveY = (worldDy / len) * player.speed;
-
-            const nextX = player.x + moveX;
-            const nextY = player.y + moveY;
+            const moveX = (worldDx / len) * player.speed; const moveY = (worldDy / len) * player.speed;
+            const nextX = player.x + moveX; const nextY = player.y + moveY;
             let collision = false;
             for (let t of trees) { if (Math.hypot(nextX - t.x, nextY - t.y) < 0.7) collision = true; }
-
-            if (!collision) {
-                player.x = nextX; player.y = nextY; isMoving = true;
-            } else isMoving = false;
+            if (!collision) { player.x = nextX; player.y = nextY; isMoving = true; } else isMoving = false;
         } else isMoving = false;
     }
 
@@ -357,12 +278,9 @@
         ctx.fillStyle = '#87CEEB';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
+        const centerX = canvas.width / 2; const centerY = canvas.height / 2;
         const pIso = toIso(player.x, player.y);
-
-        const pTileX = Math.round(player.x);
-        const pTileY = Math.round(player.y);
+        const pTileX = Math.round(player.x); const pTileY = Math.round(player.y);
         
         for (let dx = -20; dx <= 20; dx++) {
             for (let dy = -20; dy <= 20; dy++) {
@@ -370,7 +288,6 @@
                 const s = toIso(x, y);
                 const drawX = centerX + s.x - pIso.x; const drawY = centerY + s.y - pIso.y;
                 if (drawX < -64 || drawX > canvas.width + 64 || drawY < -64 || drawY > canvas.height + 64) continue;
-
                 ctx.beginPath();
                 ctx.moveTo(drawX, drawY - TILE_HEIGHT/2); ctx.lineTo(drawX + TILE_WIDTH/2, drawY);
                 ctx.lineTo(drawX, drawY + TILE_HEIGHT/2); ctx.lineTo(drawX - TILE_WIDTH/2, drawY);
@@ -381,9 +298,7 @@
         }
 
         const entities = [...trees, { x: player.x, y: player.y, type: 'player', data: { facing: player.facing, moving: isMoving }, isMe: true }];
-        for (let id in otherPlayers) {
-            entities.push({ x: otherPlayers[id].x, y: otherPlayers[id].y, type: 'player', data: otherPlayers[id], isMe: false });
-        }
+        for (let id in otherPlayers) entities.push({ x: otherPlayers[id].x, y: otherPlayers[id].y, type: 'player', data: otherPlayers[id], isMe: false });
         entities.sort((a, b) => toIso(a.x, a.y).y - toIso(b.x, b.y).y);
 
         entities.forEach(e => {
@@ -403,10 +318,8 @@
 
     function drawCharacter(x, y, charData, isMe) {
         ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(x, y, 15, 8, 0, 0, Math.PI * 2); ctx.fill();
-        const skin = isMe ? '#ffcc00' : '#3498db'; 
-        const shirt = isMe ? '#ffcc00' : '#3498db';
-        const pants = isMe ? '#3a6ea5' : '#2c3e50';
-        const outline = '#000';
+        const skin = isMe ? '#ffcc00' : '#3498db'; const shirt = isMe ? '#ffcc00' : '#3498db';
+        const pants = isMe ? '#3a6ea5' : '#2c3e50'; const outline = '#000';
         const bobY = charData.moving ? Math.abs(Math.sin(globalTick)) * 2 : 0;
         const swing = charData.moving ? Math.sin(globalTick) * 4 : 0;
         ctx.lineWidth = 1;
@@ -420,11 +333,8 @@
             ctx.fillRect(x + 1, y - 10 - swing, 7, 15); ctx.strokeRect(x + 1, y - 10 - swing, 7, 15);
             ctx.fillStyle = shirt; ctx.fillRect(x - 12, y - 25 - bobY, 24, 15); ctx.strokeRect(x - 12, y - 25 - bobY, 24, 15);
             ctx.fillStyle = skin; ctx.fillRect(x - 10, y - 45 - bobY, 20, 20); ctx.strokeRect(x - 10, y - 45 - bobY, 20, 20);
-            if (charData.facing === 'down') {
-                ctx.fillStyle = '#000'; ctx.fillRect(x - 6, y - 38 - bobY, 4, 6); ctx.fillRect(x + 2, y - 38 - bobY, 4, 6); 
-            } else {
-                ctx.fillStyle = '#b38f00'; ctx.fillRect(x - 9, y - 44 - bobY, 18, 6);
-            }
+            if (charData.facing === 'down') { ctx.fillStyle = '#000'; ctx.fillRect(x - 6, y - 38 - bobY, 4, 6); ctx.fillRect(x + 2, y - 38 - bobY, 4, 6); }
+            else { ctx.fillStyle = '#b38f00'; ctx.fillRect(x - 9, y - 44 - bobY, 18, 6); }
         } else {
             ctx.fillStyle = shirt; ctx.strokeStyle = outline;
             ctx.fillRect(x - 2, y - 25 + swing, 5, 15); ctx.strokeRect(x - 2, y - 25 + swing, 5, 15);
@@ -439,6 +349,9 @@
         }
     }
 
+    function gameLoop() { if (!isPaused) { update(); draw(); } requestAnimationFrame(gameLoop); }
+
+    // --- МЕНЮ И ГОЛОС ---
     function togglePause() {
         if (!isGameReady) return;
         isPaused = !isPaused;
@@ -446,25 +359,20 @@
     }
 
     function exitGame() {
-        window.location.href = 'index.html';
+        // Удаляем себя с карты перед выходом
+        fetch(`${FB_URL}/players/${playerId}.json`, { method: 'DELETE' }).then(() => {
+            window.close();
+        });
     }
 
-    function addChatMessage(text) {
-        const div = document.createElement('div'); div.innerHTML = text;
-        chatMessages.appendChild(div); chatMessages.scrollTop = chatMessages.scrollHeight;
+    let isVoiceActive = false;
+    function toggleVoice() {
+        const btn = document.getElementById('voiceBtn');
+        isVoiceActive = !isVoiceActive;
+        if (isVoiceActive) { btn.classList.add('active'); btn.innerText = '🔴'; }
+        else { btn.classList.remove('active'); btn.innerText = '🎤'; }
     }
-    function sendMessage() {
-        if (!isGameReady || chatInput.value.trim() === '') return;
-        addChatMessage(`<b>[Ты]:</b> ${chatInput.value}`);
-        chatInput.value = '';
-    }
-    document.getElementById('chat-input').addEventListener('keypress', function(e) { if (e.key === 'Enter') sendMessage(); });
 
-    function gameLoop() { 
-        if (!isPaused) { update(); draw(); }
-        requestAnimationFrame(gameLoop); 
-    }
-    gameLoop();
 </script>
 </body>
 </html>
