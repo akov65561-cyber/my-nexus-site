@@ -14,7 +14,7 @@
   .auth-status { font-size: 11px; display: flex; align-items: center; gap: 10px; }
   .auth-btn { background: linear-gradient(#f4f4f4, #b0b0b0); border: 1px solid #000; padding: 3px 10px; cursor: pointer; font-weight: bold; font-size: 11px; }
 
-  nav { background: linear-gradient(#4a7ab0, #2c5686); border-bottom: 2px solid #0a1c33; display: flex; }
+  nav { background: linear-gradient(#4a7ab0, #2c5686); border-bottom: 2px solid #0a1c33; display: flex; flex-wrap: wrap; }
   nav a { display: block; padding: 6px 16px; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 11px; border-right: 1px solid #0a1c33; text-shadow: 1px 1px 0 #000; cursor: pointer; }
   nav a.active { background: #0a1c33; color: #ffcc00; text-shadow: none; }
   .admin-only { display: none; background: #a00000 !important; color: #fff !important; }
@@ -24,6 +24,12 @@
   .page.active { display: block; }
   .page-title { font-size: 15px; color: #0a1c33; margin: 0 0 10px 0; padding-bottom: 4px; border-bottom: 2px solid #4a7ab0; }
 
+  /* Форма входа */
+  .auth-box { background: #eef3f7; border: 1px solid #a0b8cc; padding: 20px; max-width: 300px; margin: 20px auto; }
+  .auth-box h3 { margin-top: 0; color: #0a1c33; text-align: center; }
+  .auth-box input { width: 100%; padding: 6px; margin-bottom: 10px; border: 1px solid #88a0b8; }
+  .auth-box button { width: 100%; padding: 8px; background: #4a7ab0; color: #fff; border: 1px solid #000; font-weight: bold; cursor: pointer; }
+
   /* Посты */
   .post { background: #f0f4f8; border: 1px solid #a0b8cc; margin-bottom: 10px; padding: 10px; border-radius: 4px; }
   .post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -31,7 +37,6 @@
   .post-author { font-weight: bold; color: #003399; font-size: 12px; }
   .post-author span { font-weight: normal; color: #666; font-size: 10px; }
   .post-text { font-size: 12px; line-height: 1.5; margin-bottom: 10px; white-space: pre-wrap; }
-  
   .post-form textarea { width: 100%; height: 60px; padding: 5px; border: 1px solid #88a0b8; font-family: Verdana; margin-bottom: 5px; resize: none; }
   .post-form button { background: linear-gradient(#4a7ab0, #2c5686); color: #fff; border: 1px solid #000; padding: 6px 15px; font-weight: bold; cursor: pointer; }
 
@@ -46,7 +51,6 @@
   /* Модальное окно */
   #modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
   .modal-content { background: #fff; border: 2px solid #0a1c33; padding: 20px; width: 300px; }
-  .modal-content h3 { margin-top: 0; color: #0a1c33; }
   .modal-content input { width: 100%; padding: 6px; margin-bottom: 10px; border: 1px solid #88a0b8; }
   .modal-content button { width: 100%; padding: 8px; background: #4a7ab0; color: #fff; border: 1px solid #000; font-weight: bold; cursor: pointer; margin-bottom: 5px; }
 
@@ -65,7 +69,8 @@
   <a id="nav-home" class="active" onclick="goTo('home')">Главная</a>
   <a id="nav-games" onclick="goTo('games')">Игры</a>
   <a id="nav-download" onclick="goTo('download')">Скачать</a>
-  <a id="nav-profile" onclick="goTo('profile')">Профиль</a>
+  <a id="nav-auth" onclick="goTo('auth')">Войти</a>
+  <a id="nav-profile" onclick="goTo('profile')" style="display:none;">Профиль</a>
   <a id="nav-admin" class="admin-only" onclick="goTo('admin')">Игроки (Админ)</a>
 </nav>
 
@@ -73,12 +78,9 @@
   <!-- ГЛАВНАЯ -->
   <div id="home" class="page active">
     <h2 class="page-title">Добро пожаловать в NEXUS!</h2>
-    
     <div id="postsList">
-      <!-- Посты загрузятся тут -->
       <div style="text-align:center; color:#888;">Загрузка постов...</div>
     </div>
-
     <div class="post-form" id="postForm" style="display:none; margin-top:20px;">
       <h3 style="margin-bottom:5px; color:#0a1c33;">Написать пост (Только Админ)</h3>
       <textarea id="newPostText" placeholder="Наверное важное объявление, да?"></textarea>
@@ -109,6 +111,18 @@
     </div>
   </div>
 
+  <!-- ВОЙТИ -->
+  <div id="auth" class="page">
+    <h2 class="page-title">Вход в аккаунт</h2>
+    <div class="auth-box">
+      <h3>Авторизация</h3>
+      <input type="text" id="loginUser" placeholder="Введите логин">
+      <input type="password" id="loginPass" placeholder="Введите пароль">
+      <button onclick="loginUser()">Войти</button>
+      <p style="text-align:center; font-size:10px; color:#666; margin-top:10px;">Регистрация новых игроков доступна только Администрации.</p>
+    </div>
+  </div>
+
   <!-- ПРОФИЛЬ -->
   <div id="profile" class="page">
     <div id="profileContent"></div>
@@ -120,11 +134,9 @@
     <button class="btn-small" style="background:#4caf50; color:white; padding:6px 12px; font-size:12px; margin-bottom:10px;" onclick="openRegModal()">+ Зарегистрировать игрока</button>
     <table>
       <thead>
-        <tr><th>Ник</th><th>Роль</th><th>Реплы (Р&)</th><th>Статус</th><th>Действия</th></tr>
+        <tr><th>Ник (id)</th><th>Роль</th><th>Реплы (Р&)</th><th>Статус</th><th>Действия</th></tr>
       </thead>
-      <tbody id="adminTableBody">
-        <!-- Заполнится через JS -->
-      </tbody>
+      <tbody id="adminTableBody"></tbody>
     </table>
   </div>
 </div>
@@ -133,7 +145,7 @@
 <div id="modal">
   <div class="modal-content">
     <h3>Регистрация нового игрока</h3>
-    <input type="text" id="regNick" placeholder="Ник">
+    <input type="text" id="regNick" placeholder="Ник (id)">
     <input type="password" id="regPass" placeholder="Пароль">
     <button onclick="registerPlayer()">Создать</button>
     <button onclick="document.getElementById('modal').style.display='none'" style="background:#888;">Отмена</button>
@@ -146,16 +158,14 @@
 </div>
 
 <script>
-  // ТВОЙ FIREBASE URL
+  // ТВОЙ FIREBASE URL (Ключ к базе)
   const FB_URL = "https://pleqm-29339-default-rtdb.firebaseio.com";
   
   let currentUser = null;
 
-  // --- ИНИЦИАЛИЗАЦИЯ ---
   function init() {
     const saved = localStorage.getItem('nexus_user');
     if (saved) currentUser = JSON.parse(saved);
-    
     updateUI();
     loadPosts();
   }
@@ -165,8 +175,13 @@
     document.getElementById('customAlert').style.display = 'block';
   }
 
-  // --- НАВИГАЦИЯ ---
   function goTo(pageId) {
+    // Если пытаются зайти в админку или профиль без входа - кидаем на вход
+    if ((pageId === 'admin' || pageId === 'profile') && !currentUser) {
+      showAlert("Сначала войдите в аккаунт!");
+      pageId = 'auth';
+    }
+
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
     document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
@@ -176,14 +191,17 @@
     if(pageId === 'profile') renderProfile();
   }
 
-  // --- ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ---
   function updateUI() {
     const status = document.getElementById('authStatus');
     const adminNav = document.getElementById('nav-admin');
     const postForm = document.getElementById('postForm');
+    const navAuth = document.getElementById('nav-auth');
+    const navProfile = document.getElementById('nav-profile');
 
     if (currentUser) {
       status.innerHTML = `<span>Привет, <b>${currentUser.username}</b> (${currentUser.role})</span><button class="auth-btn" onclick="logout()">Выйти</button>`;
+      navAuth.style.display = 'none';
+      navProfile.style.display = 'block';
       
       if (currentUser.role === 'Admin') {
         adminNav.style.display = 'block';
@@ -193,37 +211,37 @@
         postForm.style.display = 'none';
       }
     } else {
-      status.innerHTML = `<button class="auth-btn" onclick="openLoginModal()">Войти</button>`;
+      status.innerHTML = `<span>Вы гость</span>`;
+      navAuth.style.display = 'block';
+      navProfile.style.display = 'none';
       adminNav.style.display = 'none';
       postForm.style.display = 'none';
     }
   }
 
-  // --- АВТОРИЗАЦИЯ (ВХОД) ---
-  function openLoginModal() {
-    const user = prompt("Введите логин:");
-    if (!user) return;
-    const pass = prompt("Введите пароль:");
-    if (!pass) return;
+  // --- ВХОД ---
+  function loginUser() {
+    const user = document.getElementById('loginUser').value.trim();
+    const pass = document.getElementById('loginPass').value.trim();
+    if (!user || !pass) return showAlert("Введите логин и пароль!");
 
     fetch(`${FB_URL}/users/${user}.json`)
       .then(res => res.json())
       .then(data => {
         if (data && data.password === pass) {
-          if (data.banned) {
-            showAlert("Вы забанены!");
-            return;
-          }
+          if (data.banned) return showAlert("Вы забанены! Доступ закрыт.");
+          
           currentUser = { username: user, role: data.role || 'Player' };
           localStorage.setItem('nexus_user', JSON.stringify(currentUser));
           showAlert("Успешный вход!");
+          document.getElementById('loginPass').value = '';
           updateUI();
           goTo('home');
         } else {
           showAlert("Неверный логин или пароль!");
         }
       })
-      .catch(() => showAlert("Ошибка соединения с Firebase"));
+      .catch(() => showAlert("Ошибка соединения с базой!"));
   }
 
   function logout() {
@@ -244,7 +262,6 @@
           list.innerHTML = '<div style="color:#888;">Постов пока нет.</div>';
           return;
         }
-        // Сортируем по времени (если добавим time), пока просто выводим
         for (let key in data) {
           const post = data[key];
           list.innerHTML += `
@@ -276,7 +293,7 @@
     });
   }
 
-  // --- АДМИНКА ---
+  // --- АДМИНКА (ИГРОКИ) ---
   function loadPlayers() {
     fetch(`${FB_URL}/users.json`)
       .then(res => res.json())
@@ -291,17 +308,15 @@
             ? `<button class="btn-small btn-money" onclick="toggleBan('${user}', false)">Разбанить</button>`
             : `<button class="btn-small btn-ban" onclick="toggleBan('${user}', true)">Забанить</button>`;
           
-          const money = u.money || 0;
-          
           tbody.innerHTML += `
             <tr>
               <td><b>${user}</b></td>
               <td>${u.role || 'Player'}</td>
-              <td>${money} Р&</td>
-              <td>${u.banned ? '<span style="color:red;">Забанен</span>' : '<span style="color:green;">Активен</span>'}</td>
+              <td>${u.money || 0} Р&</td>
+              <td>${u.banned ? '<span style="color:red;">Бан</span>' : '<span style="color:green;">ОК</span>'}</td>
               <td>
                 ${banBtn}
-                <button class="btn-small btn-money" onclick="addMoney('${user}', ${money})">+10 Р&</button>
+                <button class="btn-small btn-money" onclick="addMoney('${user}', ${u.money || 0})">+10 Р&</button>
               </td>
             </tr>
           `;
@@ -317,10 +332,9 @@
   }
 
   function addMoney(username, currentMoney) {
-    const newMoney = currentMoney + 10;
     fetch(`${FB_URL}/users/${username}/money.json`, {
       method: 'PUT',
-      body: newMoney
+      body: currentMoney + 10
     }).then(() => loadPlayers());
   }
 
@@ -340,7 +354,7 @@
       method: 'PUT',
       body: JSON.stringify(newUser)
     }).then(() => {
-      showAlert("Игрок успешно создан!");
+      showAlert("Игрок успешно зарегистрирован!");
       document.getElementById('modal').style.display = 'none';
       document.getElementById('regNick').value = '';
       document.getElementById('regPass').value = '';
@@ -351,10 +365,8 @@
   // --- ПРОФИЛЬ ---
   function renderProfile() {
     const box = document.getElementById('profileContent');
-    if (!currentUser) {
-      box.innerHTML = `<h2 class="page-title">Профиль</h2><p>Вы не вошли в аккаунт.</p>`;
-      return;
-    }
+    if (!currentUser) return;
+
     fetch(`${FB_URL}/users/${currentUser.username}.json`)
       .then(res => res.json())
       .then(data => {
@@ -363,8 +375,8 @@
           <div style="display: flex; gap: 15px; background: #eef3f7; padding: 10px; border: 1px solid #a0b8cc;">
             <div style="width: 60px; height: 60px; background: #c0c0c0; border: 2px solid #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; color: #fff;">${currentUser.username.charAt(0).toUpperCase()}</div>
             <div>
-              <h3 style="margin:0 0 5px 0; color:#003399;">${currentUser.username}</h3>
-              <div style="font-size: 11px; line-height: 1.6;">Роль: <b>${currentUser.role}</b><br>Баланс: <b>${data.money || 0} Р&</b></div>
+              <h3 style="margin:0 0 5px 0; color:#003399;">${currentUser.username} <small>(${currentUser.role})</small></h3>
+              <div style="font-size: 11px; line-height: 1.6;">Баланс: <b>${data.money || 0} Р&</b></div>
             </div>
           </div>
         `;
