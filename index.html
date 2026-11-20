@@ -31,7 +31,7 @@
   .auth-box button { width: 100%; padding: 8px; background: #4a7ab0; color: #fff; border: 1px solid #000; font-weight: bold; cursor: pointer; }
 
   /* Посты */
-  .post { background: #f0f4f8; border: 1px solid #a0b8cc; margin-bottom: 10px; padding: 10px; border-radius: 4px; }
+  .post { background: #f0f4f8; border: 1px solid #a0b8cc; margin-bottom: 10px; padding: 10px; border-radius: 4px; position: relative; }
   .post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   .post-avatar { width: 40px; height: 40px; background: #ffcc00; border: 1px solid #000; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; border-radius: 4px; }
   .post-author { font-weight: bold; color: #003399; font-size: 12px; }
@@ -39,14 +39,14 @@
   .post-text { font-size: 12px; line-height: 1.5; margin-bottom: 10px; white-space: pre-wrap; }
   .post-image { max-width: 100%; border: 1px solid #88a0b8; display: block; margin-top: 5px; border-radius: 4px; }
   
+  .post-controls { position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; }
+  .post-controls button { background: #fff; border: 1px solid #000; border-radius: 3px; cursor: pointer; padding: 3px 6px; font-size: 12px; }
+  .post-controls button:hover { background: #ddd; }
+  
   .post-form textarea { width: 100%; height: 60px; padding: 5px; border: 1px solid #88a0b8; font-family: Verdana; margin-bottom: 5px; resize: none; }
   .post-form button { background: linear-gradient(#4a7ab0, #2c5686); color: #fff; border: 1px solid #000; padding: 6px 15px; font-weight: bold; cursor: pointer; }
   
-  /* Кнопка загрузки фото */
-  .file-input-label {
-      background: #4caf50; color: white; padding: 6px 12px; border: 1px solid #000;
-      cursor: pointer; font-weight: bold; display: inline-block; margin-bottom: 5px;
-  }
+  .file-input-label { background: #4caf50; color: white; padding: 6px 12px; border: 1px solid #000; cursor: pointer; font-weight: bold; display: inline-block; margin-bottom: 5px; }
   #postImage { display: none; }
   .preview-img { max-width: 100px; max-height: 100px; display: none; margin-top: 5px; border: 1px solid #000; }
 
@@ -92,7 +92,7 @@
     </div>
 
     <div class="post-form" id="postForm" style="display:none; margin-top:20px; border-top: 2px dashed #ccc; padding-top: 15px;">
-      <h3 style="margin-bottom:5px; color:#0a1c33;">Написать пост (Только Админ)</h3>
+      <h3 style="margin-bottom:5px; color:#0a1c33;" id="formTitle">Написать пост (Только Админ)</h3>
       <textarea id="newPostText" placeholder="Наверное важное объявление, да?"></textarea>
       
       <div style="margin-bottom: 10px;">
@@ -103,7 +103,8 @@
           <img id="imagePreview" class="preview-img">
       </div>
 
-      <button onclick="createPost()" id="submitPostBtn">Отпр.</button>
+      <button onclick="savePost()" id="submitPostBtn">Отпр.</button>
+      <button onclick="cancelEdit()" id="cancelEditBtn" style="display:none; background:#f44336; margin-left:5px;">Отмена</button>
     </div>
   </div>
 
@@ -173,22 +174,102 @@
 <script>
   const FB_URL = "https://pleqm-29339-default-rtdb.firebaseio.com";
   let currentUser = null;
-  let currentImageBase64 = null; // Временное хранение картинки перед отправкой
+  let currentImageBase64 = null; 
+  let editingPostId = null; 
 
-  // --- АЛГОРИТМ СЖАТИЯ (RLE - как ты просил) ---
-  // Ищет 3 и более одинаковых символов подряд и заменяет на [Символ]*[Кол-во]
-  function rleCompress(str) {
-      return str.replace(/(.)\1{2,}/g, function(match, char) {
-          return '~' + char + '*' + match.length + '~';
-      });
+  // ==========================================
+  // СОБСТВЕННЫЙ АЛГОРИТМ СЖАТИЯ (LZ77)
+  // ==========================================
+  
+  function customLZ77Compress(input) {
+      let result = "";
+      let i = 0;
+      const windowSize = 8192; 
+      const maxMatchLength = 255; 
+      const hashTable = {};
+      
+      while (i < input.length) {
+          let bestLength = 0;
+          let bestDistance = 0;
+          
+          let key = input.substring(i, i + 3);
+          
+          if (key.length === 3 && hashTable[key] !== undefined) {
+              let j = hashTable[key];
+              if (i - j <= windowSize) {
+                  let length = 0;
+                  while (length < maxMatchLength && 
+                         i + length < input.length && 
+                         input[j + length] === input[i + length]) {
+                      length++;
+                  }
+                  if (length > bestLength) {
+                      bestLength = length;
+                      bestDistance = i - j;
+                  }
+              }
+          }
+          
+          if (key.length === 3) {
+              hashTable[key] = i;
+          }
+          
+          if (bestLength >= 5) { 
+              result += `~${bestDistance},${bestLength}~`;
+              i += bestLength;
+          } else {
+              result += input[i];
+              i++;
+          }
+      }
+      return result;
   }
 
-  // Распаковка обратно в оригинал
-  function rleDecompress(str) {
-      return str.replace(/~([\s\S])\*(\d+)~/g, function(match, char, count) {
-          return char.repeat(parseInt(count));
-      });
+  function customLZ77Decompress(input) {
+      let result = "";
+      let i = 0;
+      
+      while (i < input.length) {
+          if (input[i] === '~') {
+              let closeIdx = input.indexOf('~', i + 1);
+              if (closeIdx === -1) {
+                  result += input.slice(i);
+                  break;
+              }
+              let token = input.slice(i + 1, closeIdx);
+              let parts = token.split(',');
+              let distance = parseInt(parts[0]);
+              let length = parseInt(parts[1]);
+              
+              let startCopy = result.length - distance;
+              for (let j = 0; j < length; j++) {
+                  result += result[startCopy + j];
+              }
+              i = closeIdx + 1;
+          } else {
+              result += input[i];
+              i++;
+          }
+      }
+      return result;
   }
+
+  // Обертка, чтобы не сжимать, если результат больше оригинала
+  function customZipCompress(input) {
+      if (!input) return input;
+      let compressed = customLZ77Compress(input);
+      if (compressed.length < input.length) {
+          return "Z:" + compressed;
+      }
+      return input;
+  }
+
+  function customZipDecompress(input) {
+      if (!input || !input.startsWith("Z:")) return input;
+      return customLZ77Decompress(input.slice(2));
+  }
+
+  // ==========================================
 
   function init() {
     const saved = localStorage.getItem('nexus_user');
@@ -275,7 +356,7 @@
     goTo('home');
   }
 
-  // --- ЗАГРУЗКА И ОБРАБОТКА КАРТИНКИ ---
+  // --- ЗАГРУЗКА КАРТИНКИ ---
   function handleImageUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -284,29 +365,20 @@
       reader.onload = function(e) {
           const img = new Image();
           img.onload = function() {
-              // Сжимаем картинку через Canvas (уменьшаем до 400px в ширину/высоту)
               const canvas = document.createElement('canvas');
               const MAX_SIZE = 400; 
               let width = img.width;
               let height = img.height;
 
-              if (width > height && width > MAX_SIZE) {
-                  height *= MAX_SIZE / width;
-                  width = MAX_SIZE;
-              } else if (height > MAX_SIZE) {
-                  width *= MAX_SIZE / height;
-                  height = MAX_SIZE;
-              }
+              if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+              else if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
 
               canvas.width = width;
               canvas.height = height;
               const ctx = canvas.getContext('2d');
               ctx.drawImage(img, 0, 0, width, height);
 
-              // Получаем уменьшенную Base64 строку (JPEG сжимает лучше PNG)
               currentImageBase64 = canvas.toDataURL('image/jpeg', 0.6); 
-
-              // Показываем превью
               const preview = document.getElementById('imagePreview');
               preview.src = currentImageBase64;
               preview.style.display = 'block';
@@ -316,32 +388,47 @@
       reader.readAsDataURL(file);
   }
 
-  // --- ПОСТЫ ---
+  // --- ПОСТЫ (ЗАГРУЗКА С РАСПАКОВКОЙ) ---
   function loadPosts() {
     fetch(`${FB_URL}/posts.json`)
       .then(res => res.json())
       .then(data => {
         const list = document.getElementById('postsList');
         list.innerHTML = '';
+        
         if (!data) {
           list.innerHTML = '<div style="color:#888;">Постов пока нет.</div>';
           return;
         }
+
         for (let key in data) {
           const post = data[key];
           
-          // Если есть сжатая картинка - распаковываем её
           let imgHtml = '';
           if (post.image) {
-              const decompressedImg = rleDecompress(post.image);
-              imgHtml = `<img src="${decompressedImg}" class="post-image">`;
+              const realBase64 = customZipDecompress(post.image);
+              if (realBase64) {
+                  imgHtml = `<img src="${realBase64}" class="post-image">`;
+              }
           }
+
+          let controlsHtml = '';
+          if (currentUser && currentUser.role === 'Admin') {
+              controlsHtml = `
+              <div class="post-controls">
+                  <button onclick="startEdit('${key}')" title="Редактировать">✏️</button>
+                  <button onclick="deletePost('${key}')" title="Удалить">🗑️</button>
+              </div>`;
+          }
+
+          const editedMark = post.isEdited ? ' <span style="color:gray; font-size:10px;">(изменённый)</span>' : '';
 
           list.innerHTML += `
             <div class="post">
+              ${controlsHtml}
               <div class="post-header">
                 <div class="post-avatar">${post.author.charAt(0).toUpperCase()}</div>
-                <div class="post-author">${post.author} <span>(${post.role})</span></div>
+                <div class="post-author">${post.author} <span>(${post.role})</span>${editedMark}</div>
               </div>
               <div class="post-text">${post.text}</div>
               ${imgHtml}
@@ -351,40 +438,86 @@
       });
   }
 
-  function createPost() {
+  async function savePost() {
     if (!currentUser || currentUser.role !== 'Admin') return;
     const text = document.getElementById('newPostText').value.trim();
     if (!text && !currentImageBase64) return showAlert("Напишите текст или прикрепите картинку!");
 
     const btn = document.getElementById('submitPostBtn');
-    btn.innerText = "Сжатие и отправка...";
+    btn.innerText = "Сжатие...";
     btn.disabled = true;
 
-    // Сжимаем картинку алгоритмом RLE перед отправкой в Firebase!
-    const compressedImage = currentImageBase64 ? rleCompress(currentImageBase64) : null;
+    let compressedImage = null;
+    if (currentImageBase64) {
+        compressedImage = customZipCompress(currentImageBase64);
+    } else if (editingPostId) {
+        const oldRes = await fetch(`${FB_URL}/posts/${editingPostId}.json`);
+        const oldData = await oldRes.json();
+        compressedImage = oldData.image || null; 
+    }
 
-    const newPost = { 
+    const postData = { 
         author: currentUser.username, 
         role: currentUser.role, 
         text: text,
-        image: compressedImage // Сохраняем сжатую строку
+        image: compressedImage
     };
-    
-    fetch(`${FB_URL}/posts.json`, {
-      method: 'POST',
-      body: JSON.stringify(newPost)
-    }).then(() => {
-      document.getElementById('newPostText').value = '';
-      document.getElementById('imagePreview').style.display = 'none';
-      document.getElementById('postImage').value = '';
-      currentImageBase64 = null;
-      btn.innerText = "Отпр.";
-      btn.disabled = false;
-      loadPosts();
-    });
+
+    if (editingPostId) {
+        postData.isEdited = true;
+        await fetch(`${FB_URL}/posts/${editingPostId}.json`, {
+            method: 'PUT', body: JSON.stringify(postData)
+        });
+    } else {
+        await fetch(`${FB_URL}/posts.json`, {
+            method: 'POST', body: JSON.stringify(postData)
+        });
+    }
+
+    cancelEdit();
+    loadPosts();
   }
 
-  // --- АДМИНКА ---
+  function startEdit(postId) {
+      fetch(`${FB_URL}/posts/${postId}.json`)
+        .then(res => res.json())
+        .then(data => {
+            editingPostId = postId;
+            document.getElementById('newPostText').value = data.text;
+            document.getElementById('formTitle').innerText = "Редактирование поста";
+            document.getElementById('cancelEditBtn').style.display = 'inline-block';
+            
+            if (data.image) {
+                currentImageBase64 = customZipDecompress(data.image);
+                const preview = document.getElementById('imagePreview');
+                preview.src = currentImageBase64;
+                preview.style.display = 'block';
+            }
+            
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+  }
+
+  function deletePost(postId) {
+      if (confirm("Удалить этот пост?")) {
+          fetch(`${FB_URL}/posts/${postId}.json`, { method: 'DELETE' })
+            .then(() => loadPosts());
+      }
+  }
+
+  function cancelEdit() {
+      editingPostId = null;
+      currentImageBase64 = null;
+      document.getElementById('newPostText').value = '';
+      document.getElementById('postImage').value = '';
+      document.getElementById('imagePreview').style.display = 'none';
+      document.getElementById('formTitle').innerText = "Написать пост (Только Админ)";
+      document.getElementById('cancelEditBtn').style.display = 'none';
+      document.getElementById('submitPostBtn').innerText = "Отпр.";
+      document.getElementById('submitPostBtn').disabled = false;
+  }
+
+  // --- АДМИНКА (ИГРОКИ) ---
   function loadPlayers() {
     fetch(`${FB_URL}/users.json`)
       .then(res => res.json())
@@ -417,15 +550,13 @@
 
   function toggleBan(username, banState) {
     fetch(`${FB_URL}/users/${username}/banned.json`, {
-      method: 'PUT',
-      body: banState ? "true" : "false"
+      method: 'PUT', body: banState ? "true" : "false"
     }).then(() => loadPlayers());
   }
 
   function addMoney(username, currentMoney) {
     fetch(`${FB_URL}/users/${username}/money.json`, {
-      method: 'PUT',
-      body: currentMoney + 10
+      method: 'PUT', body: currentMoney + 10
     }).then(() => loadPlayers());
   }
 
@@ -439,8 +570,7 @@
     const newUser = { password: pass, role: 'Player', money: 0, banned: false };
 
     fetch(`${FB_URL}/users/${nick}.json`, {
-      method: 'PUT',
-      body: JSON.stringify(newUser)
+      method: 'PUT', body: JSON.stringify(newUser)
     }).then(() => {
       showAlert("Игрок успешно зарегистрирован!");
       document.getElementById('modal').style.display = 'none';
@@ -473,4 +603,4 @@
   init();
 </script>
 </body>
-</html>
+   </html>
