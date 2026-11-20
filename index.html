@@ -37,8 +37,18 @@
   .post-author { font-weight: bold; color: #003399; font-size: 12px; }
   .post-author span { font-weight: normal; color: #666; font-size: 10px; }
   .post-text { font-size: 12px; line-height: 1.5; margin-bottom: 10px; white-space: pre-wrap; }
+  .post-image { max-width: 100%; border: 1px solid #88a0b8; display: block; margin-top: 5px; border-radius: 4px; }
+  
   .post-form textarea { width: 100%; height: 60px; padding: 5px; border: 1px solid #88a0b8; font-family: Verdana; margin-bottom: 5px; resize: none; }
   .post-form button { background: linear-gradient(#4a7ab0, #2c5686); color: #fff; border: 1px solid #000; padding: 6px 15px; font-weight: bold; cursor: pointer; }
+  
+  /* Кнопка загрузки фото */
+  .file-input-label {
+      background: #4caf50; color: white; padding: 6px 12px; border: 1px solid #000;
+      cursor: pointer; font-weight: bold; display: inline-block; margin-bottom: 5px;
+  }
+  #postImage { display: none; }
+  .preview-img { max-width: 100px; max-height: 100px; display: none; margin-top: 5px; border: 1px solid #000; }
 
   /* Таблица игроков */
   table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -48,7 +58,6 @@
   .btn-ban { background: #f44336; color: white; }
   .btn-money { background: #4caf50; color: white; }
 
-  /* Модальное окно */
   #modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
   .modal-content { background: #fff; border: 2px solid #0a1c33; padding: 20px; width: 300px; }
   .modal-content input { width: 100%; padding: 6px; margin-bottom: 10px; border: 1px solid #88a0b8; }
@@ -75,20 +84,29 @@
 </nav>
 
 <div class="container">
-  <!-- ГЛАВНАЯ -->
   <div id="home" class="page active">
     <h2 class="page-title">Добро пожаловать в NEXUS!</h2>
+    
     <div id="postsList">
       <div style="text-align:center; color:#888;">Загрузка постов...</div>
     </div>
-    <div class="post-form" id="postForm" style="display:none; margin-top:20px;">
+
+    <div class="post-form" id="postForm" style="display:none; margin-top:20px; border-top: 2px dashed #ccc; padding-top: 15px;">
       <h3 style="margin-bottom:5px; color:#0a1c33;">Написать пост (Только Админ)</h3>
       <textarea id="newPostText" placeholder="Наверное важное объявление, да?"></textarea>
-      <button onclick="createPost()">Отпр.</button>
+      
+      <div style="margin-bottom: 10px;">
+          <label class="file-input-label">
+              🖼️ Прикрепить картинку
+              <input type="file" id="postImage" accept="image/*" onchange="handleImageUpload(event)">
+          </label>
+          <img id="imagePreview" class="preview-img">
+      </div>
+
+      <button onclick="createPost()" id="submitPostBtn">Отпр.</button>
     </div>
   </div>
 
-  <!-- ИГРЫ -->
   <div id="games" class="page">
     <h2 class="page-title">Все игры</h2>
     <div style="background: #f0f4f8; border: 1px solid #a0b8cc; padding: 10px; display: flex; align-items: center;">
@@ -101,7 +119,6 @@
     </div>
   </div>
 
-  <!-- СКАЧАТЬ -->
   <div id="download" class="page">
     <h2 class="page-title">Скачать клиент</h2>
     <p>Клиент NEXUS запускает игровой сервер прямо на вашем ПК и подключает вас к игре.</p>
@@ -111,7 +128,6 @@
     </div>
   </div>
 
-  <!-- ВОЙТИ -->
   <div id="auth" class="page">
     <h2 class="page-title">Вход в аккаунт</h2>
     <div class="auth-box">
@@ -123,12 +139,10 @@
     </div>
   </div>
 
-  <!-- ПРОФИЛЬ -->
   <div id="profile" class="page">
     <div id="profileContent"></div>
   </div>
 
-  <!-- АДМИНКА -->
   <div id="admin" class="page">
     <h2 class="page-title">Управление игроками</h2>
     <button class="btn-small" style="background:#4caf50; color:white; padding:6px 12px; font-size:12px; margin-bottom:10px;" onclick="openRegModal()">+ Зарегистрировать игрока</button>
@@ -141,7 +155,6 @@
   </div>
 </div>
 
-<!-- Модальное окно регистрации -->
 <div id="modal">
   <div class="modal-content">
     <h3>Регистрация нового игрока</h3>
@@ -158,10 +171,24 @@
 </div>
 
 <script>
-  // ТВОЙ FIREBASE URL (Ключ к базе)
   const FB_URL = "https://pleqm-29339-default-rtdb.firebaseio.com";
-  
   let currentUser = null;
+  let currentImageBase64 = null; // Временное хранение картинки перед отправкой
+
+  // --- АЛГОРИТМ СЖАТИЯ (RLE - как ты просил) ---
+  // Ищет 3 и более одинаковых символов подряд и заменяет на [Символ]*[Кол-во]
+  function rleCompress(str) {
+      return str.replace(/(.)\1{2,}/g, function(match, char) {
+          return '~' + char + '*' + match.length + '~';
+      });
+  }
+
+  // Распаковка обратно в оригинал
+  function rleDecompress(str) {
+      return str.replace(/~([\s\S])\*(\d+)~/g, function(match, char, count) {
+          return char.repeat(parseInt(count));
+      });
+  }
 
   function init() {
     const saved = localStorage.getItem('nexus_user');
@@ -176,7 +203,6 @@
   }
 
   function goTo(pageId) {
-    // Если пытаются зайти в админку или профиль без входа - кидаем на вход
     if ((pageId === 'admin' || pageId === 'profile') && !currentUser) {
       showAlert("Сначала войдите в аккаунт!");
       pageId = 'auth';
@@ -219,7 +245,6 @@
     }
   }
 
-  // --- ВХОД ---
   function loginUser() {
     const user = document.getElementById('loginUser').value.trim();
     const pass = document.getElementById('loginPass').value.trim();
@@ -230,7 +255,6 @@
       .then(data => {
         if (data && data.password === pass) {
           if (data.banned) return showAlert("Вы забанены! Доступ закрыт.");
-          
           currentUser = { username: user, role: data.role || 'Player' };
           localStorage.setItem('nexus_user', JSON.stringify(currentUser));
           showAlert("Успешный вход!");
@@ -251,6 +275,47 @@
     goTo('home');
   }
 
+  // --- ЗАГРУЗКА И ОБРАБОТКА КАРТИНКИ ---
+  function handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+              // Сжимаем картинку через Canvas (уменьшаем до 400px в ширину/высоту)
+              const canvas = document.createElement('canvas');
+              const MAX_SIZE = 400; 
+              let width = img.width;
+              let height = img.height;
+
+              if (width > height && width > MAX_SIZE) {
+                  height *= MAX_SIZE / width;
+                  width = MAX_SIZE;
+              } else if (height > MAX_SIZE) {
+                  width *= MAX_SIZE / height;
+                  height = MAX_SIZE;
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+
+              // Получаем уменьшенную Base64 строку (JPEG сжимает лучше PNG)
+              currentImageBase64 = canvas.toDataURL('image/jpeg', 0.6); 
+
+              // Показываем превью
+              const preview = document.getElementById('imagePreview');
+              preview.src = currentImageBase64;
+              preview.style.display = 'block';
+          };
+          img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+  }
+
   // --- ПОСТЫ ---
   function loadPosts() {
     fetch(`${FB_URL}/posts.json`)
@@ -264,6 +329,14 @@
         }
         for (let key in data) {
           const post = data[key];
+          
+          // Если есть сжатая картинка - распаковываем её
+          let imgHtml = '';
+          if (post.image) {
+              const decompressedImg = rleDecompress(post.image);
+              imgHtml = `<img src="${decompressedImg}" class="post-image">`;
+          }
+
           list.innerHTML += `
             <div class="post">
               <div class="post-header">
@@ -271,6 +344,7 @@
                 <div class="post-author">${post.author} <span>(${post.role})</span></div>
               </div>
               <div class="post-text">${post.text}</div>
+              ${imgHtml}
             </div>
           `;
         }
@@ -280,20 +354,37 @@
   function createPost() {
     if (!currentUser || currentUser.role !== 'Admin') return;
     const text = document.getElementById('newPostText').value.trim();
-    if (!text) return;
+    if (!text && !currentImageBase64) return showAlert("Напишите текст или прикрепите картинку!");
 
-    const newPost = { author: currentUser.username, role: currentUser.role, text: text };
+    const btn = document.getElementById('submitPostBtn');
+    btn.innerText = "Сжатие и отправка...";
+    btn.disabled = true;
+
+    // Сжимаем картинку алгоритмом RLE перед отправкой в Firebase!
+    const compressedImage = currentImageBase64 ? rleCompress(currentImageBase64) : null;
+
+    const newPost = { 
+        author: currentUser.username, 
+        role: currentUser.role, 
+        text: text,
+        image: compressedImage // Сохраняем сжатую строку
+    };
     
     fetch(`${FB_URL}/posts.json`, {
       method: 'POST',
       body: JSON.stringify(newPost)
     }).then(() => {
       document.getElementById('newPostText').value = '';
+      document.getElementById('imagePreview').style.display = 'none';
+      document.getElementById('postImage').value = '';
+      currentImageBase64 = null;
+      btn.innerText = "Отпр.";
+      btn.disabled = false;
       loadPosts();
     });
   }
 
-  // --- АДМИНКА (ИГРОКИ) ---
+  // --- АДМИНКА ---
   function loadPlayers() {
     fetch(`${FB_URL}/users.json`)
       .then(res => res.json())
@@ -338,10 +429,7 @@
     }).then(() => loadPlayers());
   }
 
-  // --- РЕГИСТРАЦИЯ (ТОЛЬКО АДМИН) ---
-  function openRegModal() {
-    document.getElementById('modal').style.display = 'flex';
-  }
+  function openRegModal() { document.getElementById('modal').style.display = 'flex'; }
 
   function registerPlayer() {
     const nick = document.getElementById('regNick').value.trim();
@@ -362,7 +450,6 @@
     });
   }
 
-  // --- ПРОФИЛЬ ---
   function renderProfile() {
     const box = document.getElementById('profileContent');
     if (!currentUser) return;
