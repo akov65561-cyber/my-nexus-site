@@ -53,10 +53,12 @@
   /* Таблица игроков */
   table { width: 100%; border-collapse: collapse; margin-top: 10px; }
   th { background: #4a7ab0; color: #fff; padding: 6px; text-align: left; font-size: 11px; border: 1px solid #000; }
-  td { padding: 6px; border: 1px solid #a0b8cc; font-size: 11px; background: #fff; }
-  .btn-small { background: #ddd; border: 1px solid #000; padding: 2px 6px; cursor: pointer; font-weight: bold; font-size: 10px; margin-right: 2px; }
+  td { padding: 6px; border: 1px solid #a0b8cc; font-size: 11px; background: #fff; vertical-align: middle; }
+  .btn-small { background: #ddd; border: 1px solid #000; padding: 2px 6px; cursor: pointer; font-weight: bold; font-size: 10px; }
   .btn-ban { background: #f44336; color: white; }
   .btn-money { background: #4caf50; color: white; }
+  
+  .money-input { width: 60px; padding: 3px; border: 1px solid #88a0b8; font-family: Verdana; font-size: 11px; margin-right: 5px; }
 
   #modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
   .modal-content { background: #fff; border: 2px solid #0a1c33; padding: 20px; width: 300px; }
@@ -191,7 +193,6 @@
       while (i < input.length) {
           let bestLength = 0;
           let bestDistance = 0;
-          
           let key = input.substring(i, i + 3);
           
           if (key.length === 3 && hashTable[key] !== undefined) {
@@ -210,9 +211,7 @@
               }
           }
           
-          if (key.length === 3) {
-              hashTable[key] = i;
-          }
+          if (key.length === 3) hashTable[key] = i;
           
           if (bestLength >= 5) { 
               result += `~${bestDistance},${bestLength}~`;
@@ -228,43 +227,44 @@
   function customLZ77Decompress(input) {
       let result = "";
       let i = 0;
-      
       while (i < input.length) {
           if (input[i] === '~') {
               let closeIdx = input.indexOf('~', i + 1);
-              if (closeIdx === -1) {
-                  result += input.slice(i);
-                  break;
-              }
-              let token = input.slice(i + 1, closeIdx);
-              let parts = token.split(',');
+              if (closeIdx === -1) { result += input.slice(i); break; }
+              let parts = input.slice(i + 1, closeIdx).split(',');
               let distance = parseInt(parts[0]);
               let length = parseInt(parts[1]);
-              
               let startCopy = result.length - distance;
-              for (let j = 0; j < length; j++) {
-                  result += result[startCopy + j];
-              }
+              for (let j = 0; j < length; j++) result += result[startCopy + j];
               i = closeIdx + 1;
-          } else {
-              result += input[i];
-              i++;
-          }
+          } else { result += input[i]; i++; }
       }
       return result;
   }
 
-  // Обертка, чтобы не сжимать, если результат больше оригинала
-  function customZipCompress(input) {
+  // Функция сжатия с двойной проверкой на целостность
+  function safeZipCompress(input) {
       if (!input) return input;
       let compressed = customLZ77Compress(input);
-      if (compressed.length < input.length) {
-          return "Z:" + compressed;
+      
+      // Проверка: если сжатие не удалось (стало больше) - возвращаем оригинал
+      if (compressed.length >= input.length) return input;
+      
+      // Двойная проверка: пробуем распаковать обратно и сравнить
+      try {
+          let decompressed = customLZ77Decompress(compressed);
+          if (decompressed === input) {
+              return "Z:" + compressed; // Всё ок, ставим метку ZIP
+          } else {
+              console.warn("Ошибка сжатия: данные повреждены. Сохраняем оригинал.");
+              return input;
+          }
+      } catch (e) {
+          return input;
       }
-      return input;
   }
 
-  function customZipDecompress(input) {
+  function safeZipDecompress(input) {
       if (!input || !input.startsWith("Z:")) return input;
       return customLZ77Decompress(input.slice(2));
   }
@@ -388,7 +388,7 @@
       reader.readAsDataURL(file);
   }
 
-  // --- ПОСТЫ (ЗАГРУЗКА С РАСПАКОВКОЙ) ---
+  // --- ПОСТЫ (ЗАГРУЗКА) ---
   function loadPosts() {
     fetch(`${FB_URL}/posts.json`)
       .then(res => res.json())
@@ -406,7 +406,7 @@
           
           let imgHtml = '';
           if (post.image) {
-              const realBase64 = customZipDecompress(post.image);
+              const realBase64 = safeZipDecompress(post.image);
               if (realBase64) {
                   imgHtml = `<img src="${realBase64}" class="post-image">`;
               }
@@ -449,7 +449,7 @@
 
     let compressedImage = null;
     if (currentImageBase64) {
-        compressedImage = customZipCompress(currentImageBase64);
+        compressedImage = safeZipCompress(currentImageBase64);
     } else if (editingPostId) {
         const oldRes = await fetch(`${FB_URL}/posts/${editingPostId}.json`);
         const oldData = await oldRes.json();
@@ -488,7 +488,7 @@
             document.getElementById('cancelEditBtn').style.display = 'inline-block';
             
             if (data.image) {
-                currentImageBase64 = customZipDecompress(data.image);
+                currentImageBase64 = safeZipDecompress(data.image);
                 const preview = document.getElementById('imagePreview');
                 preview.src = currentImageBase64;
                 preview.style.display = 'block';
@@ -532,16 +532,22 @@
             ? `<button class="btn-small btn-money" onclick="toggleBan('${user}', false)">Разбанить</button>`
             : `<button class="btn-small btn-ban" onclick="toggleBan('${user}', true)">Забанить</button>`;
           
+          // Поле ввода для выдачи Реплов
+          const moneyControls = `
+            <div style="display:flex; align-items:center;">
+              <span style="margin-right:5px; font-weight:bold;">${u.money || 0} Р&</span>
+              <input type="number" id="moneyInput_${user}" class="money-input" value="10">
+              <button class="btn-small btn-money" onclick="giveMoney('${user}')">Выдать</button>
+            </div>
+          `;
+          
           tbody.innerHTML += `
             <tr>
               <td><b>${user}</b></td>
               <td>${u.role || 'Player'}</td>
-              <td>${u.money || 0} Р&</td>
+              <td>${moneyControls}</td>
               <td>${u.banned ? '<span style="color:red;">Бан</span>' : '<span style="color:green;">ОК</span>'}</td>
-              <td>
-                ${banBtn}
-                <button class="btn-small btn-money" onclick="addMoney('${user}', ${u.money || 0})">+10 Р&</button>
-              </td>
+              <td>${banBtn}</td>
             </tr>
           `;
         }
@@ -554,10 +560,27 @@
     }).then(() => loadPlayers());
   }
 
-  function addMoney(username, currentMoney) {
-    fetch(`${FB_URL}/users/${username}/money.json`, {
-      method: 'PUT', body: currentMoney + 10
-    }).then(() => loadPlayers());
+  // Выдача Реплов (с поддержкой отрицательных чисел)
+  function giveMoney(username) {
+    const input = document.getElementById(`moneyInput_${username}`);
+    const amount = parseInt(input.value);
+    
+    if (isNaN(amount) || amount === 0) {
+        return showAlert("Введите корректное число (например, 50 или -100).");
+    }
+
+    // Получаем текущее значение, чтобы прибавить/отнять
+    fetch(`${FB_URL}/users/${username}/money.json`)
+      .then(res => res.json())
+      .then(currentMoney => {
+          let newMoney = (currentMoney || 0) + amount;
+          // Ограничение, чтобы не уйти в минус (по желанию можно убрать)
+          if (newMoney < 0) newMoney = 0; 
+
+          fetch(`${FB_URL}/users/${username}/money.json`, {
+            method: 'PUT', body: newMoney
+          }).then(() => loadPlayers());
+      });
   }
 
   function openRegModal() { document.getElementById('modal').style.display = 'flex'; }
@@ -603,4 +626,4 @@
   init();
 </script>
 </body>
-   </html>
+</html>
